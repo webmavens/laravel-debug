@@ -1,0 +1,26 @@
+{
+    "name": "webmavens/debug-monitor",
+    "description": "Laravel debug / data rule monitoring package",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Webmavens\\DebugMonitor\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Webmavens\\DebugMonitor\\DebugMonitorServiceProvider"
+            ]
+        }
+    },
+    "authors": [
+        {
+            "name": "webmavens",
+            "email": "info@webmavens.com"
+        }
+    ],
+    "require": {},
+    "minimum-stability": "dev"
+}
