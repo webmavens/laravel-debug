@@ -7,17 +7,26 @@ use Webmavens\DebugMonitor\Console\Commands\RunDebugRulesCommand;
 use Webmavens\DebugMonitor\Console\Commands\CleanDebugLogsCommand;
 use Webmavens\DebugMonitor\Http\Middleware\AuthorizeDebugMonitor;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Gate;
 
 class DebugMonitorServiceProvider extends ServiceProvider
 {
     public function boot()
     {
+        Gate::define('viewDebugMonitor', function ($user = null) {
+            return app()->environment('local');
+        });
+
         $router = $this->app['router'];
         $router->aliasMiddleware('debug-monitor.auth', AuthorizeDebugMonitor::class);
 
         $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'debug-monitor');
+
+        $this->publishes([
+            __DIR__.'/../stubs/DebugMonitorServiceProvider.stub' => app_path('Providers/DebugMonitorServiceProvider.php'),
+        ], 'debug-monitor-provider');
 
         $this->publishes([
             __DIR__ . '/../config/debug-monitor.php' => config_path('debug-monitor.php'),

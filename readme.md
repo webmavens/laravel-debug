@@ -25,14 +25,36 @@ Require the package via Composer:
 composer require webmavens/debug-monitor
 ```
 
-## ⚙️ Configuration
+## ⚙️ Publishing Configuration, Views & Provider
 
-Publish the configuration and view files:
+### Publish configuration:
 
 ```bash
 php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServiceProvider" --tag=config
+```
 
+### Publish views:
+
+```bash
 php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServiceProvider" --tag=views
+```
+
+### Publish provider
+```bash
+php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServiceProvider" --tag=debug-monitor-provider
+```
+This generates:
+`app/Providers/DebugMonitorServiceProvider.php`
+
+Register this provider:
+Open:
+`bootstrap/providers.php`
+Add:
+```
+return [
+    // Other providers...
+    App\Providers\DebugMonitorServiceProvider::class,
+];
 ```
 
 #### Run the migrations:
@@ -43,19 +65,23 @@ php artisan migrate
 
 ## 🔑 Authentication
 
-Access to the Debug Monitor dashboard is restricted for safety.
+By default, Debug Monitor is accessible only in local environment.
 
-**1. Local Environment** : 
-In local environment, access is open by default.
+**Customizing Access (Production / Staging)**
 
-**2. Production / Staging** :
-In `.env`, set a secure access key:
+Modify the gate() method in `app/Providers/DebugMonitorServiceProvider.php`:
 
-`DEBUG_MONITOR_AUTH_KEY=your-secret-monitor-key`
-
-You can then visit:
-
-`https://your-app.com/debug-monitor/rules?key=your-secret-monitor-key`
+```
+protected function gate(): void
+{
+    Gate::define('viewDebugMonitor', function ($user = null) {
+        return in_array(optional($user)->email, [
+            'admin@example.com',
+            // Add more authorized users
+        ]);
+    });
+}
+```
 
 ## 🧭 Usage
 ### 🖥️ Web Dashboard
@@ -91,7 +117,7 @@ php artisan debug-monitor:clean --days=7
 
 ```
 #### Configure Retention Period:
-In config/debug-monitor.php:
+In `config/debug-monitor.php`:
 ```
 'log_retention_days' => env('DEBUG_MONITOR_LOG_RETENTION_DAYS', 30),`
 ```
@@ -108,12 +134,12 @@ You can define rules such as:
 
 When a rule fails (unexpected result), the system:
 
-- Logs it in the debug_rule_logs table
+- Logs it in the `debug_rule_logs` table
 - Updates its last run time
 - Sends an alert (if notifications are enabled)
 
 ### 📬 Notifications
-You can configure the email notification in your config/debug-monitor.php file:
+Set up your mail credentials in `.env` and configure the email notification in your `config/debug-monitor.php` file:
 
 ```php
 'notify_email' => env('DEBUG_MONITOR_NOTIFY_EMAIL', 'admin@example.com'),
