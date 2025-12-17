@@ -1,79 +1,93 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full bg-gray-100 dark:bg-gray-900">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ config('app.name', 'Laravel Debug Monitor') }}</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tailwind Config -->
+    
+    <!-- Alpine.js (Required for Mobile Sidebar Toggle) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
     <script>
     tailwind.config = {
         darkMode: 'class',
-    };
+        theme: {
+            extend: {
+                fontFamily: {
+                    figtree: ['Figtree', 'sans-serif'],
+                },
+            },
+        },
+    }
     </script>
 </head>
 
-<body class="w-full h-full bg-gray-100 dark:bg-gray-900 text-black dark:text-white">
-    <main class="">
+<body class="bg-gray-100 dark:bg-gray-900 font-figtree h-full w-full">
+    <div class="bg-gray-100 dark:bg-gray-900 w-full font-figtree" x-data="{ sidebarOpen: false }">
+        @include('debug-monitor::layouts.sidebar')
 
-        <header class="pt-6 pb-4 sm:pb-6 bg-gray-200 dark:bg-gray-800 w-full z-[999] fixed">
-            <div class="mx-auto flex flex-wrap items-center gap-10 px-4 sm:flex-nowrap sm:px-6 lg:px-8">
-                <h1 class="font-semibold text-indigo-700 dark:text-white-900 text-3xl">Debug Monitor <span
-                        class="text-gray-900 dark:text-white">- Laravel</span></h1>
-                <div
-                    class="flex w-full gap-x-8 font-semibold sm:order-0 sm:w-auto sm:border-l sm:border-gray-200 sm:pl-6 dark:sm:border-white/10">
-                    <a href="{{ route('debug-monitor.dashboard') }}"
-                        class="{{ request()->routeIs('debug-monitor.dashboard') ? 'text-indigo-600 dark:text-indigo-700' : 'text-gray-700 dark:text-white' }}">Dashboard</a>
-                    <a href="{{ route('debug-monitor.rules.index') }}"
-                        class="{{ request()->routeIs('debug-monitor.rules.*') ? 'text-indigo-600 dark:text-indigo-700' : 'text-gray-700 dark:text-white' }}">Rules</a>
+        <div class="flex flex-col lg:pl-72 min-h-screen">
+            @include('debug-monitor::layouts.header')
+
+            <main class="flex-1 py-10 pt-24 sm:pt-28">
+                <div class="px-4 sm:px-6 lg:px-8 max-w-[1440px] mx-auto">
+                    
+                    @if(session('success'))
+                    <div class="rounded-md bg-green-50 p-4 dark:bg-green-500/10 dark:outline dark:outline-green-500/20 mb-5">
+                        <div class="flex">
+                            <div class="shrink-0">
+                                <svg viewBox="0 0 20 20" fill="currentColor" data-slot="icon" aria-hidden="true"
+                                    class="size-5 text-green-400">
+                                    <path
+                                        d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z"
+                                        clip-rule="evenodd" fill-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-green-800 dark:text-green-300">
+                                    {{ session('success') }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
+                    @if(session('error'))
+                    <div class="rounded-md bg-red-50 p-4 dark:bg-red-500/10 dark:outline dark:outline-red-500/20 mb-5">
+                        <div class="flex">
+                            <div class="shrink-0">
+                                <svg viewBox="0 0 20 20" fill="currentColor" data-slot="icon" aria-hidden="true"
+                                    class="size-5 text-red-400">
+                                    <path
+                                        d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v4.5a.75.75 0 0 0 1.5 0v-4.5Zm0 7.5a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"
+                                        clip-rule="evenodd" fill-rule="evenodd" />
+                                </svg>
+                            </div>
+
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-red-800 dark:text-red-300">
+                                    {{ session('error') }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
+                    @yield('content')
                 </div>
-
-                @if( ! request()->routeIs('debug-monitor.rules.create'))
-                <a href="{{ route('debug-monitor.rules.create') }}"
-                    class="ml-auto flex items-center gap-x-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-600 dark:shadow-none dark:hover:bg-indigo-700 dark:focus-visible:outline-indigo-500">
-                    <svg viewBox="0 0 20 20" fill="currentColor" data-slot="icon" aria-hidden="true"
-                        class="-ml-1.5 size-5">
-                        <path
-                            d="M10.75 6.75a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z" />
-                    </svg>
-                    New Rule
-                </a>
-                @endif
-                <button id="darkModeToggle"
-                    class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white transition-colors duration-300">
-                    <!-- Sun icon for light mode -->
-                    <svg id="sunIcon" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 3v1m0 16v1m9-9h1M4 12H3m15.364 6.364l-.707.707M6.343 6.343l-.707-.707m12.728 0l-.707-.707M6.343 17.657l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <!-- Moon icon for dark mode -->
-                    <svg id="moonIcon" class="hidden h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9 9 0 008.354-5.646z" />
-                    </svg>
-                </button>
-            </div>
-        </header>
-        <div class="relative isolate overflow-hidden  w-full px-6 mx-auto">
-            <div class="mx-auto px-4 sm:px-6 lg:px-8 mt-25">
-                @if(session('success'))
-                    <div class="bg-green-100 border border-green-400 text-green-800 px-4 py-3 rounded">
-                        {{ session('success') }}
-                    </div>
-                @endif
-
-                @if(session('error'))
-                    <div class="bg-red-200 border border-red-400 text-red-800 px-4 py-3 rounded">
-                        {{ session('error') }}
-                    </div>
-                @endif
-            </div>
-
-            @yield('content')
+            </main>
         </div>
-    </main>
-    @stack('scripts')
+    </div>
 
     <script>
         window.addEventListener('DOMContentLoaded', () => {
@@ -85,7 +99,7 @@
             // Initialize theme from localStorage or system preference
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)')
-                .matches)) {
+                    .matches)) {
                 html.classList.add('dark');
                 sunIcon.classList.add('hidden');
                 moonIcon.classList.remove('hidden');
@@ -104,7 +118,30 @@
                 moonIcon.classList.toggle('hidden', !isDark);
             });
         });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            document.addEventListener("submit", function (e) {
+                const form = e.target;
+
+                if (!(form instanceof HTMLFormElement)) return;
+
+                // Get the button that triggered submit
+                const btn = e.submitter;
+
+                if (!btn) return;
+
+                btn.disabled = true;
+
+                const originalText = btn.innerText;
+                btn.dataset.originalText = originalText;
+
+                btn.innerText = "Processing...";
+                btn.classList.add("opacity-50", "cursor-not-allowed");
+            });
+        });
+
     </script>
+    @stack('scripts')
 
 </body>
 

@@ -2,12 +2,14 @@
 
 namespace Webmavens\DebugMonitor;
 
-use Illuminate\Support\ServiceProvider;
-use Webmavens\DebugMonitor\Console\Commands\RunDebugRulesCommand;
-use Webmavens\DebugMonitor\Console\Commands\CleanDebugLogsCommand;
-use Webmavens\DebugMonitor\Http\Middleware\AuthorizeDebugMonitor;
+use Webmavens\DebugMonitor\View\Composers\RecentErrorsComposer;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
+use Webmavens\DebugMonitor\Console\Commands\CleanDebugLogsCommand;
+use Webmavens\DebugMonitor\Console\Commands\RunDebugRulesCommand;
+use Webmavens\DebugMonitor\Http\Middleware\AuthorizeDebugMonitor;
 
 class DebugMonitorServiceProvider extends ServiceProvider
 {
@@ -16,6 +18,11 @@ class DebugMonitorServiceProvider extends ServiceProvider
         Gate::define('viewDebugMonitor', function ($user = null) {
             return app()->environment('local');
         });
+
+        View::composer(
+            'debug-monitor::layouts.sidebar',
+            RecentErrorsComposer::class
+        );
 
         $router = $this->app['router'];
         $router->aliasMiddleware('debug-monitor.auth', AuthorizeDebugMonitor::class);
