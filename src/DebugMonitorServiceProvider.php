@@ -2,7 +2,7 @@
 
 namespace Webmavens\DebugMonitor;
 
-use Webmavens\DebugMonitor\View\Composers\RecentErrorsComposer;
+use Webmavens\DebugMonitor\View\Composers\RecentFailedRulesComposer;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
@@ -21,7 +21,7 @@ class DebugMonitorServiceProvider extends ServiceProvider
 
         View::composer(
             'debug-monitor::layouts.sidebar',
-            RecentErrorsComposer::class
+            RecentFailedRulesComposer::class
         );
 
         $router = $this->app['router'];
