@@ -122,11 +122,11 @@
             <div class="mt-5 col-span-full">
                 <form action="{{ route('debug-monitor.rules.suppress', $rule->id) }}" method="POST">
                     @csrf
-                    <label for="about" class="block text-sm leading-6 font-medium text-gray-900 dark:text-white">
+                    <label for="suppress_notes" class="block text-sm leading-6 font-medium text-gray-900 dark:text-white">
                         Notes (for suppress)
                     </label>
                     <div class="mt-2">
-                        <textarea id="about" name="about" rows="3"
+                        <textarea id="suppress_notes" name="suppress_notes" rows="3"
                             class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900
                                 outline outline-1 -outline-offset-1 outline-gray-300
                                 placeholder:text-gray-400

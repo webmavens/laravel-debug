@@ -116,7 +116,7 @@ class DebugRuleController extends Controller
             'expected_rows_operator' => 'required|in:=,>,<,>=,<=',
             'expected_rows' => 'nullable|integer|min:0',
             'expected_json' => 'nullable|json',
-            'notification_level' => 'required|in:default,urgent',
+            'notification_level' => 'required|in:none,default,urgent',
             'status' => 'required|in:active,inactive',
         ]);
     }

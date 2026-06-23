@@ -28,7 +28,7 @@ class CleanDebugLogsCommand extends Command
      */
     public function handle()
     {
-        $days = $this->option('days') ?? config('debug-monitor.log_retention_days', 30);
+        $days = $this->option('days') ?: config('debug-monitor.log_retention_days', 30);
         $cutoff = now()->subDays($days);
 
         $count = DebugRuleLog::where('created_at', '<', $cutoff)->count();

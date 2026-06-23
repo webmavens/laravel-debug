@@ -8,7 +8,7 @@
                 </path>
             </svg>
             <h1 class="text-md sm:text-xl text-[#374151] dark:text-white font-medium truncate">
-                <span class="font-semibold">Debug Monitor Laravel
+                <span class="font-semibold">Debug Monitor Laravel</span>
             </h1>
         </div>
 

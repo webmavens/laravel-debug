@@ -59,7 +59,7 @@ class RunDebugRulesCommand extends Command
 
             $operator = $rule->expected_rows_operator ?? '=';
             $expected = $rule->expected_rows ?? 0;
-            $expectedJson = $rule->expected_json ? json_decode($rule->expected_json, true) : null;
+            $expectedJson = $rule->expected_json ?: null;
 
             $isValid = true;
             $errorLog = [];
@@ -133,11 +133,13 @@ class RunDebugRulesCommand extends Command
                 if ($rule->suppress) {
                     $this->warn("⚠️ Rule failed but suppressed: {$rule->name}");
                     Log::info("Rule failed but suppressed: {$rule->name}", $errorLog);
+                } elseif ($rule->notification_level === 'none') {
+                    $this->warn("⚠️ Rule failed (no notification): {$rule->name}");
+                    Log::warning("Rule failed (no notification): {$rule->name}", $errorLog);
                 } else {
                     $this->warn("⚠️ Rule failed: {$rule->name}");
                     Log::warning("Rule failed: {$rule->name}", $errorLog);
 
-                    // Send notification email
                     Notification::route('mail', config('debug-monitor.notify_email'))
                     ->notify(new DebugRuleAlert($rule, $errorLog));
                 }
