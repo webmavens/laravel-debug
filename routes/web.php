@@ -14,8 +14,8 @@ Route::middleware(['web', 'debug-monitor.auth'])
         Route::get('/rules/{rule}/edit', [DebugRuleController::class, 'edit'])->name('rules.edit');
         Route::put('/rules/{rule}', [DebugRuleController::class, 'update'])->name('rules.update');
         Route::get('/rules/{rule}', [DebugRuleController::class, 'show'])->name('rules.show');
-        Route::delete('/rules/{id}', [DebugRuleController::class, 'destroy'])->name('rules.destroy');
+        Route::delete('/rules/{rule}', [DebugRuleController::class, 'destroy'])->name('rules.destroy');
 
-        Route::post('/rules/{id}/suppress', [DebugRuleController::class, 'suppress'])->name('rules.suppress');
-        Route::delete('/logs/{id}', [DebugRuleController::class, 'destroyLog'])->name('logs.destroy');
+        Route::post('/rules/{rule}/suppress', [DebugRuleController::class, 'suppress'])->name('rules.suppress');
+        Route::delete('/logs/{log}', [DebugRuleController::class, 'destroyLog'])->name('logs.destroy');
     });

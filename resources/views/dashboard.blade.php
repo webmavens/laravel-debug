@@ -224,7 +224,7 @@
                     </div>
                     @empty
                         <p class="py-3 text-gray-500 dark:text-gray-400">
-                            No rules running in next 5 minutes.
+                            No rules running in next 15 minutes.
                         </p>
                     @endforelse
                 </dl>
