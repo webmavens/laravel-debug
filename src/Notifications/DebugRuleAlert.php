@@ -26,6 +26,6 @@ class DebugRuleAlert extends Notification
             ->line("Rule: {$this->rule->name}")
             ->line("Importance: {$this->rule->importance_level}")
             ->line("Result: " . json_encode($this->result))
-            ->action('View Debug Monitor', url("/debug-monitor/rules/{$this->rule->id}"));
+            ->action('View Debug Monitor', route('debug-monitor.rules.show', $this->rule->id));
     }
 }

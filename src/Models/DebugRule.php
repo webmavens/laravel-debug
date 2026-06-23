@@ -32,6 +32,25 @@ class DebugRule extends Model
         'last_run_at' => 'datetime',
     ];
 
+    public function setExpectedJsonAttribute($value): void
+    {
+        if (empty($value)) {
+            $this->attributes['expected_json'] = null;
+
+            return;
+        }
+
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $value = $decoded;
+            }
+        }
+
+        $this->attributes['expected_json'] = json_encode($value);
+    }
+
     public function logs()
     {
         return $this->hasMany(DebugRuleLog::class, 'debug_rule_id');

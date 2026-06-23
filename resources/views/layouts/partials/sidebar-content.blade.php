@@ -62,7 +62,30 @@
                         </a>
                     </li>
                 @empty
-                    <li> No errors found. </li>
+                    <li>
+                        <div
+                            class="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+                            <div class="flex items-start gap-3">
+                                <span
+                                    class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-4">
+                                        <path fill-rule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16Zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5Z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </span>
+
+                                <div class="min-w-0">
+                                    <p class="font-medium text-gray-700 dark:text-gray-200">
+                                        All clear
+                                    </p>
+                                    <p class="mt-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                                        No failed rules yet. Alerts will appear here when a rule starts failing.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
                 @endforelse
             </ul>
         </li>

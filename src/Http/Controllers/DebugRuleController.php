@@ -33,7 +33,7 @@ class DebugRuleController extends Controller
     {
         $validated = $this->validateRule($request);
 
-        DebugRule::create($validated);
+        DebugRule::create($this->normalizeValidatedRule($validated));
 
         return redirect()
             ->route('debug-monitor.rules.index')
@@ -52,7 +52,7 @@ class DebugRuleController extends Controller
         $validated = $this->validateRule($request);
 
         $rule = DebugRule::findOrFail($id);
-        $rule->update($validated);
+        $rule->update($this->normalizeValidatedRule($validated));
 
         return redirect()
             ->route('debug-monitor.rules.index')
@@ -121,6 +121,17 @@ class DebugRuleController extends Controller
         ]);
     }
 
+    private function normalizeValidatedRule(array $validated): array
+    {
+        if (array_key_exists('expected_json', $validated) && is_string($validated['expected_json'])) {
+            $decoded = json_decode($validated['expected_json'], true);
+
+            $validated['expected_json'] = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+        }
+
+        return $validated;
+    }
+
     public function dashboard()
     {
         $now = Carbon::now();
@@ -151,35 +162,16 @@ class DebugRuleController extends Controller
                 $highFrequency[] = $rule;
             }
 
-            // Ensure lastRun is parsed in app timezone (avoid timezone issues)
-            if ($rule->last_run_at) {
-                $lastRun = Carbon::parse($rule->last_run_at, config('app.timezone'));
-            } else {
-                $lastRun = $now->copy()->subMinutes($rule->frequency_minutes);
-            }
+            $lastRun = $rule->last_run_at
+                ? Carbon::parse($rule->last_run_at)
+                : $now->copy()->subMinutes($rule->frequency_minutes);
 
-            // Next run timestamp
-            $periodSeconds = $rule->frequency_minutes * 60;
-            $elapsedSeconds = $now->getTimestamp() - $lastRun->getTimestamp();
+            $scheduledRun = $lastRun->copy()->addMinutes($rule->frequency_minutes);
+            $nextRun = $scheduledRun->lessThanOrEqualTo($now)
+                ? $now->copy()
+                : $scheduledRun;
 
-            // If elapsed is negative (lastRun in future), clamp it
-            if ($elapsedSeconds < 0) {
-                $elapsedSeconds = 0;
-            }
-
-            // how many full periods have passed since lastRun (at least 1)
-            $cycles = (int) ceil( max($elapsedSeconds, 1) / $periodSeconds );
-
-            // compute the next scheduled occurrence
-            $nextRun = $lastRun->copy()->addSeconds($cycles * $periodSeconds);
-
-            // now difference in seconds (nextRun - now), will be >= 0 normally
-            $diffSeconds = $nextRun->getTimestamp() - $now->getTimestamp();
-
-            // If nextRun is still in the past (edge cases), skip
-            if ($diffSeconds < -59 || $diffSeconds > 15 * 60) {
-                continue;
-            }
+            $diffSeconds = $now->diffInSeconds($nextRun);
 
             // Mutually exclusive buckets based on seconds until next run
             if ($diffSeconds <= 60) {

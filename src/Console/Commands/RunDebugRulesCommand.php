@@ -59,7 +59,7 @@ class RunDebugRulesCommand extends Command
 
             $operator = $rule->expected_rows_operator ?? '=';
             $expected = $rule->expected_rows ?? 0;
-            $expectedJson = $rule->expected_json ?: null;
+            $expectedJson = $this->normalizeExpectedJson($rule->expected_json);
 
             $isValid = true;
             $errorLog = [];
@@ -166,5 +166,26 @@ class RunDebugRulesCommand extends Command
                 'last_run_at' => $now,
             ]);
         }
+    }
+
+    protected function normalizeExpectedJson(mixed $expectedJson): ?array
+    {
+        if (empty($expectedJson)) {
+            return null;
+        }
+
+        if (is_array($expectedJson)) {
+            return $expectedJson;
+        }
+
+        if (is_string($expectedJson)) {
+            $decoded = json_decode($expectedJson, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return null;
     }
 }
