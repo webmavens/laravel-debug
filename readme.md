@@ -12,7 +12,7 @@ A lightweight **Laravel package** that helps developers and administrators autom
 - 🧹 Automatically clean old logs (configurable retention)
 - ✉️ Send email notifications for failed rules  
 - ⚙️ Supports **SQLite** and **MySQL**  
-- 🔒 Secure access using a secret key
+- 🔒 Secure access with a local-by-default gate and optional email allowlist
 - 🧱 Easy to extend and customize  
 
 ---
@@ -39,22 +39,9 @@ php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServic
 php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServiceProvider" --tag=views
 ```
 
-### Publish provider
+### Publish migrations
 ```bash
-php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServiceProvider" --tag=debug-monitor-provider
-```
-This generates:
-`app/Providers/DebugMonitorServiceProvider.php`
-
-Register this provider:
-Open:
-`bootstrap/providers.php`
-Add:
-```
-return [
-    // Other providers...
-    App\Providers\DebugMonitorServiceProvider::class,
-];
+php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServiceProvider" --tag=migrations
 ```
 
 #### Run the migrations:
@@ -65,23 +52,21 @@ php artisan migrate
 
 ## 🔑 Authentication
 
-By default, Debug Monitor is accessible only in local environment.
+By default, Debug Monitor is accessible in the local environment only.
 
-**Customizing Access (Production / Staging)**
+**Customizing Access**
 
-Modify the gate() method in `app/Providers/DebugMonitorServiceProvider.php`:
+Set one or both of these environment values:
 
 ```
-protected function gate(): void
-{
-    Gate::define('viewDebugMonitor', function ($user = null) {
-        return in_array(optional($user)->email, [
-            'admin@example.com',
-            // Add more authorized users
-        ]);
-    });
-}
+DEBUG_MONITOR_ALLOW_IN_LOCAL=true
+DEBUG_MONITOR_ALLOWED_EMAILS=admin@example.com,dev@example.com
 ```
+
+- `DEBUG_MONITOR_ALLOW_IN_LOCAL=true` keeps the dashboard open in local.
+- `DEBUG_MONITOR_ALLOWED_EMAILS` is a comma-separated allowlist used when `APP_ENV` is not `local`.
+
+You do not need to publish or register a custom provider for the default access behavior.
 
 ## 🧭 Usage
 ### 🖥️ Web Dashboard
@@ -119,7 +104,7 @@ php artisan debug-monitor:clean --days=7
 #### Configure Retention Period:
 In `config/debug-monitor.php`:
 ```
-'log_retention_days' => env('DEBUG_MONITOR_LOG_RETENTION_DAYS', 30),`
+'log_retention_days' => env('DEBUG_MONITOR_LOG_RETENTION_DAYS', 30),
 ```
 
 ## 🧰 Example Debug Rule
