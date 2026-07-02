@@ -7,7 +7,18 @@
         <h1 class="text-base font-semibold text-gray-900 dark:text-white">All Rules</h1>
         <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">A list of all the rules</p>
     </div>
-    <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+    <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex items-center gap-4">
+        <form method="POST" action="{{ route('debug-monitor.rules.sync') }}" class="inline">
+            @csrf
+            <button type="submit"
+                onclick="return confirm('Import new rule files from the rules directory into the database?')"
+                class="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500">
+                <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                </svg>
+                Sync from files
+            </button>
+        </form>
         <form method="GET" id="filter">
             <div class="flex items-center gap-2">
                 <label for="importance_level"
@@ -96,7 +107,14 @@
                             <tr>
                                 <td
                                     class="py-4 pr-3 pl-4 text-sm font-medium whitespace-normal break-words truncate sm:pl-6 dark:text-white">
-                                    {{ $rule->name }}</td>
+                                    {{ $rule->name }}
+                                    @if(in_array($rule->id, $fileRuleIds ?? []))
+                                        <span title="Imported from a rule file"
+                                            class="ml-1 inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-400/10 dark:text-gray-400">
+                                            file
+                                        </span>
+                                    @endif
+                                </td>
                                 <td class="px-3 py-4 text-sm whitespace-normal break-words max-w-[220px] sm:max-w-[520px] text-gray-500 dark:text-gray-400">
                                     {{ Str::limit($rule->sql_query, 70) }}</td>
                                 <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">

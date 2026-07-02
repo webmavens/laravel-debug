@@ -32,6 +32,25 @@ class DebugRule extends Model
         'last_run_at' => 'datetime',
     ];
 
+    /**
+     * Validation rules shared by the web form and the file-sync importer,
+     * so rules created through either path validate identically.
+     */
+    public static function validationRules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'sql_query' => 'required|string',
+            'frequency_minutes' => 'required|integer|min:1',
+            'importance_level' => 'required|in:high,medium,low',
+            'expected_rows_operator' => 'required|in:=,>,<,>=,<=',
+            'expected_rows' => 'nullable|integer|min:0',
+            'expected_json' => 'nullable|json',
+            'notification_level' => 'required|in:none,default,urgent',
+            'status' => 'required|in:active,inactive',
+        ];
+    }
+
     public function setExpectedJsonAttribute($value): void
     {
         if (empty($value)) {

@@ -1,0 +1,11 @@
+{
+    "name": "Users missing email",
+    "sql_query": "SELECT * FROM users WHERE email IS NULL",
+    "frequency_minutes": 15,
+    "importance_level": "high",
+    "expected_rows_operator": "=",
+    "expected_rows": 0,
+    "expected_json": null,
+    "notification_level": "default",
+    "status": "active"
+}

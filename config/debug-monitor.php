@@ -35,4 +35,16 @@ return [
     |
     */
     'log_retention_days' => env('DEBUG_MONITOR_LOG_RETENTION_DAYS', 1),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rule Files Directory
+    |--------------------------------------------------------------------------
+    |
+    | Directory containing version-controlled rule definitions (one JSON file
+    | per rule). Files are synced into the database — like migrations — and are
+    | never executed directly. See DebugMonitor's sync command / UI button.
+    |
+    */
+    'rules_path' => env('DEBUG_MONITOR_RULES_PATH', base_path('debug-monitor-rules')),
 ];

@@ -7,6 +7,7 @@ A lightweight **Laravel package** that helps developers and administrators autom
 ## 🚀 Features
 
 - 🔍 Define SQL-based **debug rules** directly from the web UI  
+- 📁 Ship **version-controlled rule files** and sync them into the database (migration-style)  
 - 🕒 Run rules automatically via scheduler or manually using an Artisan command  
 - 📊 Store and view detailed **execution logs**
 - 🧹 Automatically clean old logs (configurable retention)
@@ -23,6 +24,11 @@ Require the package via Composer:
 
 ```bash
 composer require webmavens/debug-monitor
+```
+OR
+
+```bash
+composer require webmavens/debug-monitor:@dev
 ```
 
 ## ⚙️ Publishing Configuration, Views & Provider
@@ -105,6 +111,48 @@ php artisan debug-monitor:clean --days=7
 In `config/debug-monitor.php`:
 ```
 'log_retention_days' => env('DEBUG_MONITOR_LOG_RETENTION_DAYS', 30),
+```
+
+### 📁 Version-Controlled Rule Files (Sync to DB)
+
+Rules can also be defined as **version-controlled JSON files** and imported into the
+database — much like Laravel migrations. Files are the source; **they are never executed
+directly**. Once a file is synced it is tracked and skipped on the next sync, and if a
+database rule with the same name already exists the file is skipped (**the database wins**).
+
+Publish the rules directory (creates `debug-monitor-rules/` with an example):
+
+```bash
+php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServiceProvider" --tag=debug-monitor-rules
+```
+
+Add one JSON file per rule, e.g. `debug-monitor-rules/missing-user-emails.json`:
+
+```json
+{
+    "name": "Users missing email",
+    "sql_query": "SELECT * FROM users WHERE email IS NULL",
+    "frequency_minutes": 15,
+    "importance_level": "high",
+    "expected_rows_operator": "=",
+    "expected_rows": 0,
+    "expected_json": null,
+    "notification_level": "default",
+    "status": "active"
+}
+```
+
+Import pending files into the database using the **"Sync from files"** button on
+`/debug-monitor/rules`, or via Artisan (ideal for deploy pipelines):
+
+```bash
+php artisan debug-monitor:sync
+```
+
+The directory is configurable in `config/debug-monitor.php`:
+
+```php
+'rules_path' => env('DEBUG_MONITOR_RULES_PATH', base_path('debug-monitor-rules')),
 ```
 
 ## 🧰 Example Debug Rule

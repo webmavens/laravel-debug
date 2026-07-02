@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Webmavens\DebugMonitor\Console\Commands\CleanDebugLogsCommand;
 use Webmavens\DebugMonitor\Console\Commands\RunDebugRulesCommand;
+use Webmavens\DebugMonitor\Console\Commands\SyncDebugRulesCommand;
 use Webmavens\DebugMonitor\Http\Middleware\AuthorizeDebugMonitor;
 use Webmavens\DebugMonitor\View\Composers\RecentFailedRulesComposer;
 
@@ -41,10 +42,15 @@ class DebugMonitorServiceProvider extends ServiceProvider
             __DIR__.'/../database/migrations' => database_path('migrations'),
         ], 'migrations');
 
+        $this->publishes([
+            __DIR__.'/../stubs/debug-monitor-rules' => base_path('debug-monitor-rules'),
+        ], 'debug-monitor-rules');
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 RunDebugRulesCommand::class,
                 CleanDebugLogsCommand::class,
+                SyncDebugRulesCommand::class,
             ]);
 
             $this->app->booted(function () {

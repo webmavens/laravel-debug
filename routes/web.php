@@ -9,6 +9,7 @@ Route::middleware(['web', 'debug-monitor.auth'])
     ->group(function () {
         Route::get('/dashboard', [DebugRuleController::class, 'dashboard'])->name('dashboard');
         Route::get('/rules', [DebugRuleController::class, 'index'])->name('rules.index');
+        Route::post('/rules/sync', [DebugRuleController::class, 'sync'])->name('rules.sync');
         Route::get('/rules/create', [DebugRuleController::class, 'create'])->name('rules.create');
         Route::post('/rules', [DebugRuleController::class, 'store'])->name('rules.store');
         Route::get('/rules/{rule}/edit', [DebugRuleController::class, 'edit'])->name('rules.edit');

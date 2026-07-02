@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Webmavens\DebugMonitor\Models\DebugRule;
 use Webmavens\DebugMonitor\Models\DebugRuleLog;
+use Webmavens\DebugMonitor\Models\DebugRuleSync;
+use Webmavens\DebugMonitor\Services\RuleSyncService;
 use Carbon\Carbon;
 
 class DebugRuleController extends Controller
@@ -21,7 +23,12 @@ class DebugRuleController extends Controller
         ->latest()
         ->paginate(10);
 
-        return view('debug-monitor::rules.index', compact('rules'));
+        $fileRuleIds = DebugRuleSync::where('status', 'applied')
+            ->whereNotNull('debug_rule_id')
+            ->pluck('debug_rule_id')
+            ->all();
+
+        return view('debug-monitor::rules.index', compact('rules', 'fileRuleIds'));
     }
 
     public function create()
@@ -38,6 +45,30 @@ class DebugRuleController extends Controller
         return redirect()
             ->route('debug-monitor.rules.index')
             ->with('success', 'Rule added successfully!');
+    }
+
+    public function sync(RuleSyncService $service)
+    {
+        $summary = $service->sync();
+
+        $parts = [];
+        $parts[] = count($summary['applied']).' imported';
+
+        if (! empty($summary['skipped'])) {
+            $parts[] = count($summary['skipped']).' skipped (name already exists)';
+        }
+
+        if (! empty($summary['errors'])) {
+            $parts[] = count($summary['errors']).' failed';
+        }
+
+        $message = 'Rule sync complete: '.implode(', ', $parts).'.';
+
+        $status = empty($summary['errors']) ? 'success' : 'error';
+
+        return redirect()
+            ->route('debug-monitor.rules.index')
+            ->with($status, $message);
     }
 
     public function edit($id)
@@ -108,17 +139,7 @@ class DebugRuleController extends Controller
 
     private function validateRule(Request $request): array
     {
-        return $request->validate([
-            'name' => 'required|string|max:255',
-            'sql_query' => 'required|string',
-            'frequency_minutes' => 'required|integer|min:1',
-            'importance_level' => 'required|in:high,medium,low',
-            'expected_rows_operator' => 'required|in:=,>,<,>=,<=',
-            'expected_rows' => 'nullable|integer|min:0',
-            'expected_json' => 'nullable|json',
-            'notification_level' => 'required|in:none,default,urgent',
-            'status' => 'required|in:active,inactive',
-        ]);
+        return $request->validate(DebugRule::validationRules());
     }
 
     private function normalizeValidatedRule(array $validated): array
