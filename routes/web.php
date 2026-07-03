@@ -10,6 +10,8 @@ Route::middleware(['web', 'debug-monitor.auth'])
         Route::get('/dashboard', [DebugRuleController::class, 'dashboard'])->name('dashboard');
         Route::get('/rules', [DebugRuleController::class, 'index'])->name('rules.index');
         Route::post('/rules/sync', [DebugRuleController::class, 'sync'])->name('rules.sync');
+        Route::post('/rules/{rule}/export', [DebugRuleController::class, 'export'])->name('rules.export');
+        Route::post('/rules/{rule}/run', [DebugRuleController::class, 'run'])->name('rules.run');
         Route::get('/rules/create', [DebugRuleController::class, 'create'])->name('rules.create');
         Route::post('/rules', [DebugRuleController::class, 'store'])->name('rules.store');
         Route::get('/rules/{rule}/edit', [DebugRuleController::class, 'edit'])->name('rules.edit');

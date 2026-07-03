@@ -12,7 +12,7 @@ class DebugRuleSync extends Model
         'rule_file',
         'name',
         'debug_rule_id',
-        'status',
+        'checksum',
         'batch',
     ];
 

@@ -115,10 +115,17 @@ In `config/debug-monitor.php`:
 
 ### 📁 Version-Controlled Rule Files (Sync to DB)
 
-Rules can also be defined as **version-controlled JSON files** and imported into the
-database — much like Laravel migrations. Files are the source; **they are never executed
-directly**. Once a file is synced it is tracked and skipped on the next sync, and if a
-database rule with the same name already exists the file is skipped (**the database wins**).
+Rules can also live as **version-controlled JSON files** that are synced into the
+database. Rules always **execute from the database** — files are never run directly.
+Each file stays linked to its database rule (with a content checksum), so the two can be
+kept in step:
+
+- **Sync** applies new files and **updates changed files** (detected by checksum).
+- If a database rule with the same name already exists and isn't linked to the file, the
+  file is **skipped** (**the database wins**).
+- **Editing a linked rule in the UI rewrites its file** on disk.
+- **Exporting** a UI-created rule turns it into a linked file.
+- **Deleting** a linked rule removes its file too.
 
 Publish the rules directory (creates `debug-monitor-rules/` with an example):
 
@@ -126,7 +133,10 @@ Publish the rules directory (creates `debug-monitor-rules/` with an example):
 php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServiceProvider" --tag=debug-monitor-rules
 ```
 
-Add one JSON file per rule, e.g. `debug-monitor-rules/missing-user-emails.json`:
+You can author files two ways: **write them by hand**, or **build a rule in the UI and
+export it** (the "Export" action on a rule, or `php artisan debug-monitor:export`).
+
+A rule file, e.g. `debug-monitor-rules/missing-user-emails.json`:
 
 ```json
 {
@@ -143,10 +153,12 @@ Add one JSON file per rule, e.g. `debug-monitor-rules/missing-user-emails.json`:
 ```
 
 Import pending files into the database using the **"Sync from files"** button on
-`/debug-monitor/rules`, or via Artisan (ideal for deploy pipelines):
+`/debug-monitor/rules` (it shows how many files are pending), or via Artisan (ideal for
+deploy pipelines):
 
 ```bash
-php artisan debug-monitor:sync
+php artisan debug-monitor:sync      # apply new + changed files
+php artisan debug-monitor:export    # export DB rules to files (--id=1 --id=2 for specific rules)
 ```
 
 The directory is configurable in `config/debug-monitor.php`:

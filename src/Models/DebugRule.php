@@ -74,4 +74,18 @@ class DebugRule extends Model
     {
         return $this->hasMany(DebugRuleLog::class, 'debug_rule_id');
     }
+
+    /**
+     * The sync record linking this rule to a version-controlled JSON file
+     * (present only for rules that originated from, or were exported to, a file).
+     */
+    public function syncRecord()
+    {
+        return $this->hasOne(DebugRuleSync::class, 'debug_rule_id');
+    }
+
+    public function isFileRule(): bool
+    {
+        return $this->syncRecord()->exists();
+    }
 }

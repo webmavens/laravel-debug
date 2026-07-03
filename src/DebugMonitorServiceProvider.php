@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Webmavens\DebugMonitor\Console\Commands\CleanDebugLogsCommand;
+use Webmavens\DebugMonitor\Console\Commands\ExportDebugRulesCommand;
 use Webmavens\DebugMonitor\Console\Commands\RunDebugRulesCommand;
 use Webmavens\DebugMonitor\Console\Commands\SyncDebugRulesCommand;
 use Webmavens\DebugMonitor\Http\Middleware\AuthorizeDebugMonitor;
@@ -51,6 +52,7 @@ class DebugMonitorServiceProvider extends ServiceProvider
                 RunDebugRulesCommand::class,
                 CleanDebugLogsCommand::class,
                 SyncDebugRulesCommand::class,
+                ExportDebugRulesCommand::class,
             ]);
 
             $this->app->booted(function () {

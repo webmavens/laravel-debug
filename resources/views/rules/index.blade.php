@@ -17,30 +17,43 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                 </svg>
                 Sync from files
+                @if(($pendingCount ?? 0) > 0)
+                    <span class="ml-1 inline-flex items-center rounded-full bg-white/25 px-1.5 py-0.5 text-xs font-semibold">
+                        {{ $pendingCount }} pending
+                    </span>
+                @endif
             </button>
         </form>
-        <form method="GET" id="filter">
-            <div class="flex items-center gap-2">
-                <label for="importance_level"
-                    class="block text-sm/6 font-medium text-gray-900 dark:text-white">Importance</label>
-                <div class="grid grid-cols-1">
-                    <select name="importance_level" id="importance_level"
-                        class="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:*:bg-gray-800 dark:focus-visible:outline-indigo-500"
-                        onchange="document.getElementById('filter').submit()">
+        <form method="GET" id="filter" class="flex flex-wrap items-center gap-2">
+            <input type="search" name="search" value="{{ request('search') }}" placeholder="Search name…"
+                class="rounded-md bg-white py-1.5 pl-3 pr-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500" />
 
-                        @foreach(['all', 'high', 'medium', 'low'] as $level)
-                            <option value="{{ $level }}" @selected(request('importance_level')==$level)>
-                                {{ ucfirst($level) }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <svg viewBox="0 0 16 16" fill="currentColor" data-slot="icon" aria-hidden="true"
-                        class="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500 sm:size-4 dark:text-gray-400">
-                        <path
-                            d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"
-                            clip-rule="evenodd" fill-rule="evenodd" />
-                    </svg>
-                </div>
+            <div class="grid grid-cols-1">
+                <select name="status" id="status"
+                    class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:*:bg-gray-800 dark:outline-white/10 dark:focus-visible:outline-indigo-500"
+                    onchange="document.getElementById('filter').submit()">
+                    @foreach(['all' => 'All statuses', 'active' => 'Active', 'inactive' => 'Inactive', 'suppressed' => 'Suppressed'] as $value => $label)
+                        <option value="{{ $value }}" @selected(request('status', 'all') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"
+                    class="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500 sm:size-4 dark:text-gray-400">
+                    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                </svg>
+            </div>
+
+            <div class="grid grid-cols-1">
+                <select name="importance_level" id="importance_level"
+                    class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:*:bg-gray-800 dark:outline-white/10 dark:focus-visible:outline-indigo-500"
+                    onchange="document.getElementById('filter').submit()">
+                    @foreach(['all' => 'All importance', 'high' => 'High', 'medium' => 'Medium', 'low' => 'Low'] as $value => $label)
+                        <option value="{{ $value }}" @selected(request('importance_level', 'all') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"
+                    class="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500 sm:size-4 dark:text-gray-400">
+                    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                </svg>
             </div>
         </form>
     </div>
@@ -136,17 +149,37 @@
                                     </form>
                                 </td>
                                 <td class="py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-6">
+                                    @php $isFileRule = in_array($rule->id, $fileRuleIds ?? []); @endphp
                                     <span class="flex gap-2">
+                                        <form action="{{ route('debug-monitor.rules.run', $rule->id) }}" method="post"
+                                            class="inline">
+                                            @csrf
+                                            <button type="submit"
+                                                class="text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300">
+                                                Run now
+                                            </button>
+                                        </form>
                                         <a href="{{ route('debug-monitor.rules.show', $rule->id) }}"
                                             class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">Show</a>
                                         <a href="{{ route('debug-monitor.rules.edit', $rule->id) }}"
                                             class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">Edit</a>
+                                        @unless($isFileRule)
+                                            <form action="{{ route('debug-monitor.rules.export', $rule->id) }}" method="post"
+                                                class="inline">
+                                                @csrf
+                                                <button type="submit" onclick="return confirm('Export this rule to a version-controlled JSON file?')"
+                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
+                                                    Export
+                                                </button>
+                                            </form>
+                                        @endunless
                                         <form action="{{ route('debug-monitor.rules.destroy', $rule) }}" method="post"
                                             class="inline">
                                             @csrf
                                             @method('DELETE')
 
-                                            <button type="submit" onclick="return confirm('Are you sure?')"
+                                            <button type="submit"
+                                                onclick="return confirm('{{ $isFileRule ? 'Delete this rule AND its linked file?' : 'Are you sure?' }}')"
                                                 class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
                                                 Delete
                                             </button>

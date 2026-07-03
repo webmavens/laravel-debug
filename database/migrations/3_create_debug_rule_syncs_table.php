@@ -19,7 +19,7 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('debug_rules')
                 ->nullOnDelete();
-            $table->enum('status', ['applied', 'skipped'])->default('applied');
+            $table->string('checksum')->nullable();
             $table->unsignedInteger('batch');
             $table->timestamps();
         });

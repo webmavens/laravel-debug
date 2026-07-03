@@ -7,28 +7,41 @@ use Illuminate\Routing\Controller;
 use Webmavens\DebugMonitor\Models\DebugRule;
 use Webmavens\DebugMonitor\Models\DebugRuleLog;
 use Webmavens\DebugMonitor\Models\DebugRuleSync;
+use Webmavens\DebugMonitor\Services\RuleRunner;
 use Webmavens\DebugMonitor\Services\RuleSyncService;
-use Carbon\Carbon;
 
 class DebugRuleController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, RuleSyncService $service)
     {
         $level = $request->importance_level;
         $allowedLevels = ['high', 'medium', 'low'];
 
-        $rules = DebugRule::when(in_array($level, $allowedLevels), function ($query) use ($level) {
-            $query->where('importance_level', $level);
-        })
-        ->latest()
-        ->paginate(10);
+        $search = trim((string) $request->get('search', ''));
+        $status = $request->get('status');
 
-        $fileRuleIds = DebugRuleSync::where('status', 'applied')
-            ->whereNotNull('debug_rule_id')
+        $rules = DebugRule::query()
+            ->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
+            ->when(in_array($level, $allowedLevels), fn ($query) => $query->where('importance_level', $level))
+            ->when($status === 'active', fn ($query) => $query->where('status', 'active'))
+            ->when($status === 'inactive', fn ($query) => $query->where('status', 'inactive'))
+            ->when($status === 'suppressed', fn ($query) => $query->where('suppress', true))
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        // Only rules whose linked file is still on disk count as "file" rules, so a
+        // manually deleted file immediately drops the badge and re-enables Export.
+        $existingFiles = collect($service->files())->map(fn ($file) => basename($file))->all();
+
+        $fileRuleIds = DebugRuleSync::whereNotNull('debug_rule_id')
+            ->whereIn('rule_file', $existingFiles)
             ->pluck('debug_rule_id')
             ->all();
 
-        return view('debug-monitor::rules.index', compact('rules', 'fileRuleIds'));
+        $pendingCount = $service->pendingCount();
+
+        return view('debug-monitor::rules.index', compact('rules', 'fileRuleIds', 'pendingCount'));
     }
 
     public function create()
@@ -52,23 +65,67 @@ class DebugRuleController extends Controller
         $summary = $service->sync();
 
         $parts = [];
-        $parts[] = count($summary['applied']).' imported';
+
+        if (! empty($summary['applied'])) {
+            $parts[] = 'Imported: '.implode(', ', $summary['applied']);
+        }
+
+        if (! empty($summary['updated'])) {
+            $parts[] = 'Updated: '.implode(', ', $summary['updated']);
+        }
+
+        if (! empty($summary['unlinked'])) {
+            $parts[] = 'Unlinked (file removed): '.implode(', ', $summary['unlinked']);
+        }
 
         if (! empty($summary['skipped'])) {
-            $parts[] = count($summary['skipped']).' skipped (name already exists)';
+            $parts[] = 'Skipped (name exists): '.implode(', ', array_column($summary['skipped'], 'name'));
         }
 
         if (! empty($summary['errors'])) {
-            $parts[] = count($summary['errors']).' failed';
+            $parts[] = 'Failed: '.implode(', ', array_column($summary['errors'], 'file'));
         }
 
-        $message = 'Rule sync complete: '.implode(', ', $parts).'.';
+        $message = empty($parts)
+            ? 'Rule sync complete: everything is already up to date.'
+            : 'Rule sync complete. '.implode('. ', $parts).'.';
 
         $status = empty($summary['errors']) ? 'success' : 'error';
 
         return redirect()
             ->route('debug-monitor.rules.index')
             ->with($status, $message);
+    }
+
+    public function export($id, RuleSyncService $service)
+    {
+        $rule = DebugRule::findOrFail($id);
+
+        $result = $service->export($rule);
+
+        $verb = $result['created'] ? 'exported to' : 'updated';
+
+        return redirect()
+            ->route('debug-monitor.rules.index')
+            ->with('success', "Rule \"{$rule->name}\" {$verb} file: {$result['file']}");
+    }
+
+    public function run($id, RuleRunner $runner)
+    {
+        $rule = DebugRule::findOrFail($id);
+
+        // Manual runs stay silent (no notifications) — they're for testing rules.
+        $outcome = $runner->run($rule, notify: false);
+
+        if ($outcome['status'] === 'ok') {
+            return back()->with('success', "Rule \"{$rule->name}\" ran and passed.");
+        }
+
+        $reason = $outcome['exception']
+            ? "errored: {$outcome['exception']}"
+            : 'failed — see the rule\'s logs for details.';
+
+        return back()->with('error', "Rule \"{$rule->name}\" {$reason}");
     }
 
     public function edit($id)
@@ -78,16 +135,23 @@ class DebugRuleController extends Controller
         return view('debug-monitor::rules.form', compact('rule'));
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, RuleSyncService $service)
     {
         $validated = $this->validateRule($request);
 
         $rule = DebugRule::findOrFail($id);
         $rule->update($this->normalizeValidatedRule($validated));
 
+        // Keep the linked file (if any) in step with the edited rule.
+        $file = $service->writeLinkedFile($rule);
+
+        $message = $file
+            ? "Rule updated successfully! Linked file {$file} was rewritten."
+            : 'Rule updated successfully!';
+
         return redirect()
             ->route('debug-monitor.rules.index')
-            ->with('success', 'Rule updated successfully!');
+            ->with('success', $message);
     }
 
     public function show($id)
@@ -102,9 +166,12 @@ class DebugRuleController extends Controller
         return view('debug-monitor::rules.show', compact('rule', 'logs'));
     }
 
-    public function destroy($id)
+    public function destroy($id, RuleSyncService $service)
     {
         $rule = DebugRule::findOrFail($id);
+
+        // Remove the linked file + sync record first, then the rule itself.
+        $service->deleteLinkedFile($rule);
         $rule->delete();
 
         return redirect()
@@ -155,7 +222,6 @@ class DebugRuleController extends Controller
 
     public function dashboard()
     {
-        $now = Carbon::now();
         $totalRules = DebugRule::count();
         $activeRules = DebugRule::where('status', 'active')->count();
         $inactiveRules = DebugRule::where('status', 'inactive')->count();
@@ -168,42 +234,6 @@ class DebugRuleController extends Controller
             ->latest()
             ->get();
 
-        $runsNext1 = [];
-        $runsNext5 = [];
-        $runsNext15 = [];
-        $highFrequency = [];
-
-        foreach ($rules as $rule) {
-            if (empty($rule->frequency_minutes) || $rule->status !== 'active') {
-                continue;
-            }
-
-            // High Frequency Rules (1–3 mins)
-            if ($rule->frequency_minutes >= 1 && $rule->frequency_minutes <= 3) {
-                $highFrequency[] = $rule;
-            }
-
-            $lastRun = $rule->last_run_at
-                ? Carbon::parse($rule->last_run_at)
-                : $now->copy()->subMinutes($rule->frequency_minutes);
-
-            $scheduledRun = $lastRun->copy()->addMinutes($rule->frequency_minutes);
-            $nextRun = $scheduledRun->lessThanOrEqualTo($now)
-                ? $now->copy()
-                : $scheduledRun;
-
-            $diffSeconds = $now->diffInSeconds($nextRun);
-
-            // Mutually exclusive buckets based on seconds until next run
-            if ($diffSeconds <= 60) {
-                $runsNext1[] = ['rule' => $rule, 'nextRun' => $nextRun, 'diffSeconds' => $diffSeconds];
-            } elseif ($diffSeconds <= 5 * 60) {
-                $runsNext5[] = ['rule' => $rule, 'nextRun' => $nextRun, 'diffSeconds' => $diffSeconds];
-            } elseif ($diffSeconds <= 15 * 60) {
-                $runsNext15[] = ['rule' => $rule, 'nextRun' => $nextRun, 'diffSeconds' => $diffSeconds];
-            }
-        }
-
         return view('debug-monitor::dashboard', compact(
             'totalRules',
             'activeRules',
@@ -211,11 +241,7 @@ class DebugRuleController extends Controller
             'suppressRules',
             'recentLogs',
             'recentErrors',
-            'rules',
-            'runsNext1',
-            'runsNext5',
-            'runsNext15',
-            'highFrequency'
+            'rules'
         ));
     }
 }
