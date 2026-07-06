@@ -3,11 +3,12 @@
 namespace Webmavens\DebugMonitor\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Webmavens\DebugMonitor\Models\DebugRule;
 
-class DebugRuleAlert extends Notification
+class DebugRuleAlert extends Notification implements ShouldQueue
 {
     use Queueable;
 

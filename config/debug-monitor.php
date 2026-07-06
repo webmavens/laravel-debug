@@ -34,7 +34,26 @@ return [
     | Define how many days debug logs should be kept before being deleted.
     |
     */
-    'log_retention_days' => env('DEBUG_MONITOR_LOG_RETENTION_DAYS', 1),
+    'log_retention_days' => env('DEBUG_MONITOR_LOG_RETENTION_DAYS', 30),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Query Execution Safety
+    |--------------------------------------------------------------------------
+    |
+    | read_only  Reject anything that isn't a single read-only statement
+    |            (SELECT / WITH / SHOW / EXPLAIN) so a rule can never mutate data.
+    | query_timeout  Per-statement timeout in seconds (0 = no limit). Applied on
+    |            supported drivers (MySQL/MariaDB, PostgreSQL) so a runaway query
+    |            aborts instead of hanging the run.
+    | max_rows   Cap on the number of result rows kept in memory / stored in the
+    |            logs. Rules are streamed, so the true row count is always exact;
+    |            only the retained sample is capped.
+    |
+    */
+    'read_only' => env('DEBUG_MONITOR_READ_ONLY', true),
+    'query_timeout' => (int) env('DEBUG_MONITOR_QUERY_TIMEOUT', 30),
+    'max_rows' => (int) env('DEBUG_MONITOR_MAX_ROWS', 1000),
 
     /*
     |--------------------------------------------------------------------------

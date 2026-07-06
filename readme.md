@@ -167,6 +167,32 @@ The directory is configurable in `config/debug-monitor.php`:
 'rules_path' => env('DEBUG_MONITOR_RULES_PATH', base_path('debug-monitor-rules')),
 ```
 
+## 🛡️ Query Safety & Reliability
+
+Rules run against your database, so execution is guarded for safety and to stay
+reliable on large / complex queries:
+
+- **Read-only only** — a rule must be a single `SELECT` / `WITH` / `SHOW` /
+  `EXPLAIN` statement. Anything that could mutate data or stack a second
+  statement is rejected.
+- **Streamed, not buffered** — results are streamed and counted, so a query
+  returning millions of rows won't exhaust memory. Only a bounded sample
+  (`max_rows`) is kept for logs and JSON matching; the row count is always exact.
+- **Per-statement timeout** — a runaway query aborts instead of hanging the run
+  (MySQL/MariaDB and PostgreSQL).
+- **Non-overlapping schedule** — a slow run won't stack on top of the next one.
+
+Configure via `.env` / `config/debug-monitor.php`:
+
+```
+DEBUG_MONITOR_READ_ONLY=true   # enforce read-only single-statement rules
+DEBUG_MONITOR_QUERY_TIMEOUT=30 # per-query timeout in seconds (0 = off)
+DEBUG_MONITOR_MAX_ROWS=1000    # cap on rows sampled/stored per run
+```
+
+Alerts are queued (`ShouldQueue`), so run a queue worker for them to send:
+`php artisan queue:work`.
+
 ## 🧰 Example Debug Rule
 
 You can define rules such as:

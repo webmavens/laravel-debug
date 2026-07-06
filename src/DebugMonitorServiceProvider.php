@@ -57,7 +57,11 @@ class DebugMonitorServiceProvider extends ServiceProvider
 
             $this->app->booted(function () {
                 $schedule = $this->app->make(Schedule::class);
-                $schedule->command('debug-monitor:run')->everyMinute();
+                // withoutOverlapping stops a slow run from stacking on top of the
+                // previous minute's run and piling load onto the database.
+                $schedule->command('debug-monitor:run')
+                    ->everyMinute()
+                    ->withoutOverlapping();
                 $schedule->command('debug-monitor:clean')->daily();
             });
         }
