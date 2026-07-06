@@ -34,6 +34,16 @@ return new class extends Migration
             $table->text('suppress_notes')->nullable();
             $table->timestamp('last_run_at')->nullable();
             $table->timestamps();
+
+            // Indexes for the rules-list filters + ordering. The list orders by
+            // created_at DESC with pagination and filters on name (prefix search),
+            // status, importance_level and suppress; each filter is paired with
+            // created_at so the WHERE + ORDER BY is served from the index.
+            $table->index('created_at');
+            $table->index('name');
+            $table->index(['status', 'created_at']);
+            $table->index(['importance_level', 'created_at']);
+            $table->index(['suppress', 'created_at']);
         });
     }
 

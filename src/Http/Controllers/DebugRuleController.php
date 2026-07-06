@@ -21,7 +21,8 @@ class DebugRuleController extends Controller
         $status = $request->get('status');
 
         $rules = DebugRule::query()
-            ->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
+            // Prefix match (name LIKE 'term%') so the name index can serve the search.
+            ->when($search !== '', fn ($query) => $query->where('name', 'like', $search.'%'))
             ->when(in_array($level, $allowedLevels), fn ($query) => $query->where('importance_level', $level))
             ->when($status === 'active', fn ($query) => $query->where('status', 'active'))
             ->when($status === 'inactive', fn ($query) => $query->where('status', 'inactive'))

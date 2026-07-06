@@ -25,7 +25,7 @@
             </button>
         </form>
         <form method="GET" id="filter" class="flex flex-wrap items-center gap-2">
-            <input type="search" name="search" value="{{ request('search') }}" placeholder="Search name…"
+            <input type="search" name="search" value="{{ request('search') }}" placeholder="Name starts with…"
                 class="rounded-md bg-white py-1.5 pl-3 pr-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500" />
 
             <div class="grid grid-cols-1">
