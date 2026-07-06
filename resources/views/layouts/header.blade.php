@@ -1,6 +1,6 @@
 
 <header class="border-b dark:border-white/10 bg-gray-100 dark:bg-gray-900 pt-4 pb-4 sm:pt-6 sm:pb-6 fixed top-0 z-40 w-full lg:left-72 lg:w-[calc(100%-18rem)]">
-    <div class="max-w-[1440px] mx-auto flex flex-wrap items-center gap-4 sm:flex-nowrap px-4 sm:px-6 lg:px-8 2xl:px-6">
+    <div class="flex flex-wrap items-center gap-4 sm:flex-nowrap px-4 sm:px-6 lg:px-8 2xl:px-6">
         
         <!-- Mobile Sidebar Toggle button -->
         <button type="button" 

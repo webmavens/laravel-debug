@@ -36,10 +36,10 @@
         </div>
         <div class="mt-5 flow-root ">
             <div class="">
-                <div class="inline-block max-w-dvw w-full overflow-auto py-2 align-middle">
+                <div class="w-full py-2 align-middle">
                     <div
-                        class="overflow-auto shadow-sm outline-1 outline-black/5 sm:rounded-lg dark:shadow-none dark:-outline-offset-1 dark:outline-white/10">
-                        <table class="relative min-w-full divide-y divide-gray-300 dark:divide-white/15">
+                        class="overflow-hidden shadow-sm outline-1 outline-black/5 sm:rounded-lg dark:shadow-none dark:-outline-offset-1 dark:outline-white/10">
+                        <table class="relative w-full table-auto divide-y divide-gray-300 dark:divide-white/15">
                             <thead class="bg-white dark:bg-gray-800/75">
                                 <tr>
                                     <th scope="col"
@@ -63,7 +63,7 @@
                                 @forelse($recentErrors as $error)
                                     <tr>
                                         <td
-                                            class="py-4 pr-3 pl-4 text-sm font-medium text-gray-900 sm:pl-6 dark:text-white">
+                                            class="py-4 pr-3 pl-4 text-sm font-medium break-words text-gray-900 sm:pl-6 dark:text-white">
                                             {{ $error->rule->name }}</td>
 
                                         <td class="px-3 py-4 text-sm dark:text-gray-400">
@@ -129,8 +129,8 @@
 
                                                 @if(empty($details['exception']) && empty($details['row_mismatch']) &&
                                                 empty($details['data_mismatch']) && empty($details['message']))
-                                                    <span class="text-gray-800 dark:text-gray-300">
-                                                        Returned {{ count($details) }} row(s).
+                                                    <span class="text-gray-500 dark:text-gray-400 italic">
+                                                        No additional failure details were recorded.
                                                     </span>
                                                 @endif
 

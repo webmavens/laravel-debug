@@ -26,6 +26,7 @@
         </form>
         <form method="GET" id="filter" class="flex flex-wrap items-center gap-2">
             <input type="search" name="search" value="{{ request('search') }}" placeholder="Name starts with…"
+                onsearch="document.getElementById('filter').submit()"
                 class="rounded-md bg-white py-1.5 pl-3 pr-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500" />
 
             <div class="grid grid-cols-1">
@@ -65,7 +66,7 @@
             <div
                 class="overflow-hidden shadow-sm outline-1 outline-black/5 sm:rounded-lg dark:shadow-none dark:-outline-offset-1 dark:outline-white/10">
                 
-                <table class="relative w-full table-fixed divide-y divide-gray-300 dark:divide-white/15">
+                <table class="relative w-full table-auto divide-y divide-gray-300 dark:divide-white/15">
                     <thead class="bg-white dark:bg-gray-800/75">
                         <tr>
                             <th scope="col"
@@ -148,9 +149,9 @@
                                             onclick="return confirm('Are you sure you want to {{ $rule->suppress ? 'unsuppress' : 'suppress' }} this rule?')">{{ $rule->suppress ? 'Unsuppress' : 'Suppress' }}</button>
                                     </form>
                                 </td>
-                                <td class="py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-6">
+                                <td class="py-4 pr-4 pl-3 text-right text-sm font-medium sm:pr-6">
                                     @php $isFileRule = in_array($rule->id, $fileRuleIds ?? []); @endphp
-                                    <span class="flex gap-2">
+                                    <span class="flex flex-wrap justify-end gap-2">
                                         <form action="{{ route('debug-monitor.rules.run', $rule->id) }}" method="post"
                                             class="inline">
                                             @csrf

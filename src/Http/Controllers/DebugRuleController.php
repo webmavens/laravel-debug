@@ -228,8 +228,6 @@ class DebugRuleController extends Controller
         $inactiveRules = DebugRule::where('status', 'inactive')->count();
         $suppressRules = DebugRule::where('suppress', true)->count();
 
-        $recentLogs = DebugRuleLog::latest()->take(10)->get();
-        $rules = DebugRule::orderBy('id', 'desc')->get();
         $recentErrors = DebugRuleLog::where('status', 'failed')
             ->where('created_at', '>=', now()->subDay())
             ->latest()
@@ -240,9 +238,7 @@ class DebugRuleController extends Controller
             'activeRules',
             'inactiveRules',
             'suppressRules',
-            'recentLogs',
-            'recentErrors',
-            'rules'
+            'recentErrors'
         ));
     }
 }

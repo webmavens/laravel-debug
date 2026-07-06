@@ -37,8 +37,7 @@
                 <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-2">Last Debug Log</h3>
 
                 <pre
-                    class="shadow-sm rounded-lg bg-gray-100 dark:bg-gray-800 p-3 text-xs overflow-x-auto text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{{ json_encode($rule->last_debug_log, JSON_PRETTY_PRINT) }}
-                    </pre>
+                    class="shadow-sm rounded-lg bg-gray-100 dark:bg-gray-800 p-3 text-xs overflow-x-auto text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{{ json_encode($rule->last_debug_log, JSON_PRETTY_PRINT) }}</pre>
             </div>
             @endif
 
@@ -49,11 +48,11 @@
                     </div>
                 </div>
                 <div class="mt-5 flow-root">
-                    <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                        <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                    <div class="-mx-4 -my-2 overflow-hidden sm:-mx-6 lg:-mx-8">
+                        <div class="block w-full py-2 align-middle sm:px-6 lg:px-8">
                             <div
                                 class="border border-gray-900/10 dark:border-white/10 overflow-hidden shadow-sm outline-1 outline-black/5 sm:rounded-lg dark:shadow-none dark:-outline-offset-1 dark:outline-white/10">
-                                <table class="relative min-w-full divide-y divide-gray-300 dark:divide-white/15">
+                                <table class="relative w-full table-auto divide-y divide-gray-300 dark:divide-white/15">
                                     <thead class="bg-gray-50 dark:bg-gray-800/75">
                                         <tr>
                                             <th scope="col"
@@ -83,7 +82,7 @@
                                                 <span
                                                     class="inline-flex items-center rounded-md  px-2 py-1 text-xs font-medium {{ $log->status == 'ok' ? 'bg-green-100 text-green-700 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-400/10 dark:text-red-400' }}">{{ ucfirst($log->status) }}</span>
                                             </td>
-                                            <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            <td class="px-3 py-4 text-sm break-words text-gray-500 dark:text-gray-400">
                                                 {{ json_encode($log->result, JSON_PRETTY_PRINT) }}
                                             </td>
                                             <td

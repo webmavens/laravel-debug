@@ -42,10 +42,11 @@
             @include('debug-monitor::layouts.header')
 
             <main class="flex-1 py-10 pt-24 sm:pt-28">
-                <div class="px-4 sm:px-6 lg:px-8 max-w-[1440px] mx-auto">
+                <div class="px-4 sm:px-6 lg:px-8">
                     
                     @if(session('success'))
-                    <div class="rounded-md bg-green-50 p-4 dark:bg-green-500/10 dark:outline dark:outline-green-500/20 mb-5">
+                    <div x-data="{ show: true }" x-show="show" x-transition.opacity.duration.300ms
+                        class="rounded-md bg-green-50 p-4 dark:bg-green-500/10 dark:outline dark:outline-green-500/20 mb-5">
                         <div class="flex">
                             <div class="shrink-0">
                                 <svg viewBox="0 0 20 20" fill="currentColor" data-slot="icon" aria-hidden="true"
@@ -60,12 +61,23 @@
                                     {{ session('success') }}
                                 </p>
                             </div>
+                            <div class="ml-auto pl-3">
+                                <button type="button" @click="show = false"
+                                    class="-m-1.5 inline-flex rounded-md p-1.5 text-green-500 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 dark:hover:bg-green-500/20 dark:focus-visible:outline-green-500">
+                                    <span class="sr-only">Dismiss</span>
+                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5">
+                                        <path
+                                            d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     @endif
 
                     @if(session('error'))
-                    <div class="rounded-md bg-red-50 p-4 dark:bg-red-500/10 dark:outline dark:outline-red-500/20 mb-5">
+                    <div x-data="{ show: true }" x-show="show" x-transition.opacity.duration.300ms
+                        class="rounded-md bg-red-50 p-4 dark:bg-red-500/10 dark:outline dark:outline-red-500/20 mb-5">
                         <div class="flex">
                             <div class="shrink-0">
                                 <svg viewBox="0 0 20 20" fill="currentColor" data-slot="icon" aria-hidden="true"
@@ -80,6 +92,16 @@
                                 <p class="text-sm font-medium text-red-800 dark:text-red-300">
                                     {{ session('error') }}
                                 </p>
+                            </div>
+                            <div class="ml-auto pl-3">
+                                <button type="button" @click="show = false"
+                                    class="-m-1.5 inline-flex rounded-md p-1.5 text-red-500 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 dark:hover:bg-red-500/20 dark:focus-visible:outline-red-500">
+                                    <span class="sr-only">Dismiss</span>
+                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5">
+                                        <path
+                                            d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -121,24 +143,40 @@
             });
         });
 
-        document.addEventListener("DOMContentLoaded", function () {
-            document.addEventListener("submit", function (e) {
-                const form = e.target;
+        document.addEventListener("submit", function (e) {
+            const form = e.target;
 
-                if (!(form instanceof HTMLFormElement)) return;
+            if (!(form instanceof HTMLFormElement)) return;
 
-                // Get the button that triggered submit
-                const btn = e.submitter;
+            // Get the button that triggered submit
+            const btn = e.submitter;
 
-                if (!btn) return;
+            if (!btn) return;
 
-                btn.disabled = true;
+            btn.disabled = true;
+            btn.classList.add("opacity-50", "cursor-not-allowed");
 
-                const originalText = btn.innerText;
-                btn.dataset.originalText = originalText;
-
+            // Only swap plain-text buttons; buttons with an icon/badge child keep
+            // their markup so we don't wipe SVGs or the "N pending" count.
+            if (btn.children.length === 0) {
+                btn.dataset.originalText = btn.innerText;
                 btn.innerText = "Processing...";
-                btn.classList.add("opacity-50", "cursor-not-allowed");
+            }
+        });
+
+        // Re-enable buttons when the page is restored from the bfcache (browser
+        // Back/Forward), otherwise a submitted button stays stuck on "Processing...".
+        window.addEventListener("pageshow", function (e) {
+            if (!e.persisted) return;
+
+            document.querySelectorAll("button[disabled]").forEach(function (btn) {
+                btn.disabled = false;
+                btn.classList.remove("opacity-50", "cursor-not-allowed");
+
+                if (btn.dataset.originalText !== undefined) {
+                    btn.innerText = btn.dataset.originalText;
+                    delete btn.dataset.originalText;
+                }
             });
         });
 
