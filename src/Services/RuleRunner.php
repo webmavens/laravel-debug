@@ -253,6 +253,19 @@ class RuleRunner
         if (! preg_match('/^\s*(SELECT|WITH|SHOW|EXPLAIN)\b/i', $sql)) {
             throw new \RuntimeException('Only read-only queries (SELECT/WITH/SHOW/EXPLAIN) are allowed.');
         }
+
+        // Belt-and-suspenders: reject data-modifying keywords anywhere in the
+        // statement. This closes data-modifying CTEs (e.g. Postgres
+        // "WITH x AS (DELETE ... RETURNING ...) SELECT ...") that would slip
+        // past the leading-keyword check above.
+        $forbidden = [
+            'INSERT', 'UPDATE', 'DELETE', 'DROP', 'TRUNCATE', 'ALTER',
+            'CREATE', 'REPLACE', 'MERGE', 'GRANT', 'REVOKE', 'CALL', 'INTO',
+        ];
+
+        if (preg_match('/\b('.implode('|', $forbidden).')\b/i', $sql)) {
+            throw new \RuntimeException('The query contains a data-modifying keyword and was blocked.');
+        }
     }
 
     /**
