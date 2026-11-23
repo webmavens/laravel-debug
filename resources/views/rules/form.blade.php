@@ -41,12 +41,12 @@
         <div class="px-4 py-6 sm:p-8">
             <div class="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
 
-                <div class="sm:col-span-3">
+                <div class="sm:col-span-2">
                     <label for="name" class="block text-sm leading-6 font-medium text-gray-900 dark:text-white">
                         Rule Name
                     </label>
                     <div class="mt-2">
-                        <input id="name" type="text" name="name" value="{{ old('name', $rule->name ?? '') }}"
+                        <input id="name" type="text" name="name" placeholder="e.g. Users without an email" value="{{ old('name', $rule->name ?? '') }}"
                             class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900
                                 outline outline-1 -outline-offset-1 outline-gray-300
                                 placeholder:text-gray-400
@@ -59,35 +59,7 @@
                     </div>
                 </div>
 
-                <div class="col-span-full">
-                    <div class="flex items-center gap-2">
-                        <label for="sql_query" class="block text-sm leading-6 font-medium text-gray-900 dark:text-white">
-                            SQL Query
-                        </label>
-                        <x-debug-monitor::tooltip title="SQL Query">
-                            Enter a SELECT query to monitor. The row count and data are compared against your expected values on each run.
-                        </x-debug-monitor::tooltip>
-                    </div>
-                    <div class="mt-2">
-                        <textarea id="sql_query" name="sql_query" rows="3"
-                            class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900
-                                outline outline-1 -outline-offset-1 outline-gray-300
-                                placeholder:text-gray-400
-                                focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600
-                                sm:text-sm sm:leading-6
-                                dark:bg-white/5 dark:text-white
-                                dark:outline dark:outline-1 dark:-outline-offset-1 dark:outline-gray-600
-                                dark:placeholder:text-gray-500 dark:focus:outline-indigo-500">{{ old('sql_query', $rule->sql_query ?? '') }}</textarea>
-                    </div>
-                    <p class="mt-2 text-xs leading-6 text-gray-600 dark:text-gray-400">
-                        Example: SELECT * FROM users WHERE firstname IS NULL
-                    </p>
-                    @error('sql_query')
-                        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="sm:col-span-3">
+                <div class="sm:col-span-2">
                     <div class="flex items-center gap-2">
                         <label for="expected_rows" class="block text-sm leading-6 font-medium text-gray-900 dark:text-white">
                             Expected Rows
@@ -118,7 +90,7 @@
                                     <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
                                 </svg>
                             </div>
-                            <input type="number" name="expected_rows" id="expected_rows"
+                            <input type="number" name="expected_rows" id="expected_rows" min="0" placeholder="e.g. 0"
                                 class="block min-w-0 grow bg-white py-1.5 pl-1 pr-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm sm:leading-6 dark:bg-transparent dark:text-white dark:placeholder:text-gray-500"
                                 value="{{ old('expected_rows', $rule->expected_rows ?? 0) }}" />
                         </div>
@@ -128,7 +100,7 @@
                     </div>
                 </div>
 
-                <div class="sm:col-span-3">
+                <div class="sm:col-span-2">
                     <div class="flex items-center gap-2">
                         <label for="frequency_minutes" class="block text-sm leading-6 font-medium text-gray-900 dark:text-white">
                             Frequency (minutes)
@@ -138,7 +110,7 @@
                         </x-debug-monitor::tooltip>
                     </div>
                     <div class="mt-2">
-                        <input name="frequency_minutes" id="frequency_minutes" type="number"
+                        <input name="frequency_minutes" id="frequency_minutes" type="number" min="1" placeholder="e.g. 15"
                             class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900
                                 outline outline-1 -outline-offset-1 outline-gray-300
                                 placeholder:text-gray-400
@@ -150,6 +122,34 @@
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+                </div>
+
+                <div class="col-span-full">
+                    <div class="flex items-center gap-2">
+                        <label for="sql_query" class="block text-sm leading-6 font-medium text-gray-900 dark:text-white">
+                            SQL Query
+                        </label>
+                        <x-debug-monitor::tooltip title="SQL Query">
+                            Enter a SELECT query to monitor. The row count and data are compared against your expected values on each run.
+                        </x-debug-monitor::tooltip>
+                    </div>
+                    <div class="mt-2">
+                        <textarea id="sql_query" name="sql_query" rows="3" placeholder="e.g. SELECT id, name FROM users WHERE email IS NULL"
+                            class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900
+                                outline outline-1 -outline-offset-1 outline-gray-300
+                                placeholder:text-gray-400
+                                focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600
+                                sm:text-sm sm:leading-6
+                                dark:bg-white/5 dark:text-white
+                                dark:outline dark:outline-1 dark:-outline-offset-1 dark:outline-gray-600
+                                dark:placeholder:text-gray-500 dark:focus:outline-indigo-500">{{ old('sql_query', $rule->sql_query ?? '') }}</textarea>
+                    </div>
+                    <p class="mt-2 text-xs leading-6 text-gray-600 dark:text-gray-400">
+                        Example: SELECT * FROM users WHERE firstname IS NULL
+                    </p>
+                    @error('sql_query')
+                        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 <div class="col-span-full">
@@ -190,7 +190,7 @@
                     'status' => ['active', 'inactive'],
                     'importance_level' => ['high', 'medium', 'low']
                 ] as $field => $options)
-                    <div class="sm:col-span-3">
+                    <div class="sm:col-span-2">
                         <div class="flex items-center gap-2">
                             <label for="{{ $field }}" class="block text-sm leading-6 font-medium text-gray-900 dark:text-white">
                                 {{ ucwords(str_replace('_', ' ', $field)) }}
