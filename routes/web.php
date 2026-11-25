@@ -10,8 +10,10 @@ Route::middleware(['web', 'debug-monitor.auth'])
         Route::get('/dashboard', [DebugRuleController::class, 'dashboard'])->name('dashboard');
         Route::get('/rules', [DebugRuleController::class, 'index'])->name('rules.index');
         Route::post('/rules/sync', [DebugRuleController::class, 'sync'])->name('rules.sync');
+        Route::post('/rules/bulk', [DebugRuleController::class, 'bulk'])->name('rules.bulk');
         Route::post('/rules/{rule}/export', [DebugRuleController::class, 'export'])->name('rules.export');
         Route::post('/rules/{rule}/run', [DebugRuleController::class, 'run'])->name('rules.run');
+        Route::post('/rules/{rule}/status', [DebugRuleController::class, 'toggleStatus'])->name('rules.status');
         Route::get('/rules/create', [DebugRuleController::class, 'create'])->name('rules.create');
         Route::post('/rules', [DebugRuleController::class, 'store'])->name('rules.store');
         Route::get('/rules/{rule}/edit', [DebugRuleController::class, 'edit'])->name('rules.edit');
@@ -20,5 +22,6 @@ Route::middleware(['web', 'debug-monitor.auth'])
         Route::delete('/rules/{rule}', [DebugRuleController::class, 'destroy'])->name('rules.destroy');
 
         Route::post('/rules/{rule}/suppress', [DebugRuleController::class, 'suppress'])->name('rules.suppress');
+        Route::get('/logs/{log}', [DebugRuleController::class, 'showLog'])->name('logs.show');
         Route::delete('/logs/{log}', [DebugRuleController::class, 'destroyLog'])->name('logs.destroy');
     });

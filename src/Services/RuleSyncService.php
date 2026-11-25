@@ -53,6 +53,23 @@ class RuleSyncService
     }
 
     /**
+     * IDs of rules whose linked file is still on disk. Only these count as
+     * "file" rules, so a manually deleted file immediately drops the badge
+     * and makes the rule exportable again.
+     *
+     * @return int[]
+     */
+    public function fileRuleIds(): array
+    {
+        $existingFiles = collect($this->files())->map(fn ($file) => basename($file))->all();
+
+        return DebugRuleSync::whereNotNull('debug_rule_id')
+            ->whereIn('rule_file', $existingFiles)
+            ->pluck('debug_rule_id')
+            ->all();
+    }
+
+    /**
      * Number of files that a sync would create or update (new + changed).
      */
     public function pendingCount(): int

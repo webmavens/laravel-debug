@@ -2,6 +2,12 @@
 
 @section('content')
 
+@push('styles')
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+@endpush
+
 <div class="sm:flex sm:items-center">
     <div class="sm:flex-auto">
         <h1 class="text-base font-semibold text-gray-900 dark:text-white">All Rules</h1>
@@ -33,7 +39,7 @@
                 <select name="status" id="status"
                     class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:*:bg-gray-800 dark:outline-white/10 dark:focus-visible:outline-indigo-500"
                     onchange="document.getElementById('filter').submit()">
-                    @foreach(['all' => 'All statuses', 'active' => 'Active', 'inactive' => 'Inactive', 'suppressed' => 'Suppressed'] as $value => $label)
+                    @foreach(['all' => 'All statuses', 'active' => 'Active', 'inactive' => 'Inactive', 'suppressed' => 'Suppressed', 'failing' => 'Failing'] as $value => $label)
                         <option value="{{ $value }}" @selected(request('status', 'all') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -60,17 +66,92 @@
     </div>
 </div>
 
-<div class="mt-8 flow-root">
+<div class="mt-8 flow-root"
+    x-data="{
+        ids: @js($rules->pluck('id')->map(fn ($id) => (string) $id)->values()),
+        selected: [],
+        get allSelected() { return this.ids.length > 0 && this.selected.length === this.ids.length; },
+        toggleAll(checked) { this.selected = checked ? [...this.ids] : []; },
+    }">
+
+    {{-- Bulk actions for the rules selected on this page --}}
+    <div x-show="selected.length > 0" x-cloak
+        class="mb-3 flex flex-wrap items-center gap-3 rounded-md bg-indigo-50 px-4 py-2.5 text-sm dark:bg-indigo-500/10 dark:outline dark:outline-indigo-500/20">
+        <span class="font-semibold text-indigo-900 dark:text-indigo-200" x-text="selected.length + ' selected'"></span>
+
+        <form id="bulk-form" method="POST" action="{{ route('debug-monitor.rules.bulk') }}"
+            class="flex flex-wrap items-center gap-2">
+            @csrf
+            @php
+                $bulkBtn = 'rounded-md bg-white px-2.5 py-1 text-xs font-semibold shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-white/10 dark:ring-white/10 dark:hover:bg-white/20';
+                $divider = 'mx-1 h-4 w-px bg-indigo-200 dark:bg-indigo-500/30';
+            @endphp
+            <button type="submit" name="action" value="run"
+                class="{{ $bulkBtn }} text-amber-700 dark:text-amber-400">
+                Run
+            </button>
+            <button type="submit" name="action" value="export"
+                @click="if (! confirm('Export ' + selected.length + ' rule(s) to version-controlled JSON files? Rules already linked to a file are skipped.')) $event.preventDefault()"
+                class="{{ $bulkBtn }} text-indigo-700 dark:text-indigo-300">
+                Export
+            </button>
+
+            <span class="{{ $divider }}" aria-hidden="true"></span>
+
+            <button type="submit" name="action" value="activate"
+                class="{{ $bulkBtn }} text-green-700 dark:text-green-400">
+                Activate
+            </button>
+            <button type="submit" name="action" value="deactivate"
+                @click="if (! confirm('Deactivate ' + selected.length + ' rule(s)? They will stop running on schedule.')) $event.preventDefault()"
+                class="{{ $bulkBtn }} text-gray-700 dark:text-gray-300">
+                Deactivate
+            </button>
+
+            <span class="{{ $divider }}" aria-hidden="true"></span>
+
+            <button type="submit" name="action" value="suppress"
+                @click="if (! confirm('Suppress ' + selected.length + ' rule(s)? They keep running and logging, but no alerts will be sent.')) $event.preventDefault()"
+                class="{{ $bulkBtn }} text-indigo-700 dark:text-indigo-300">
+                Suppress
+            </button>
+            <button type="submit" name="action" value="unsuppress"
+                class="{{ $bulkBtn }} text-indigo-700 dark:text-indigo-300">
+                Unsuppress
+            </button>
+
+            <span class="{{ $divider }}" aria-hidden="true"></span>
+
+            <button type="submit" name="action" value="delete"
+                @click="if (! confirm('Delete ' + selected.length + ' rule(s)? Linked rule files will be deleted too.')) $event.preventDefault()"
+                class="rounded-md bg-red-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-400">
+                Delete
+            </button>
+        </form>
+
+        <button type="button" @click="selected = []"
+            class="ml-auto text-xs font-medium text-indigo-700 hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-200">
+            Clear selection
+        </button>
+    </div>
+
     <div class="-my-2 overflow-hidden">
         <div class="inline-block w-full py-2 align-middle">
             <div
                 class="overflow-hidden shadow-sm outline-1 outline-black/5 sm:rounded-lg dark:shadow-none dark:-outline-offset-1 dark:outline-white/10">
-                
+
                 <table class="relative w-full table-auto divide-y divide-gray-300 dark:divide-white/15">
                     <thead class="bg-white dark:bg-gray-800/75">
                         <tr>
+                            <th scope="col" class="w-10 py-3.5 pl-4 sm:pl-6">
+                                <input type="checkbox" aria-label="Select all rules on this page"
+                                    :checked="allSelected"
+                                    x-effect="$el.indeterminate = selected.length > 0 && ! allSelected"
+                                    @change="toggleAll($event.target.checked)"
+                                    class="size-4 cursor-pointer accent-indigo-600" />
+                            </th>
                             <th scope="col"
-                                class="w-2/5 sm:w-1/4 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 sm:pl-6 dark:text-gray-200">
+                                class="w-2/5 sm:w-1/5 px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
                                 Name</th>
                             <th scope="col"
                                 class="w-2/5 sm:w-1/3 px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
@@ -111,16 +192,21 @@
                             </th>
 
                             <th scope="col"
-                                class="w-32 py-3.5 pr-4 pl-3 text-sm font-semibold text-gray-900 dark:text-gray-200 text-right sm:pr-6">
+                                class="w-40 py-3.5 pr-4 pl-3 text-sm font-semibold text-gray-900 dark:text-gray-200 text-right sm:pr-6">
                                 Actions
                             </th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 bg-white dark:divide-white/10 dark:bg-gray-800/50">
                         @forelse($rules as $rule)
-                            <tr>
+                            <tr :class="selected.includes('{{ $rule->id }}') && 'bg-indigo-50/60 dark:bg-indigo-500/5'">
+                                <td class="py-4 pl-4 sm:pl-6">
+                                    <input type="checkbox" name="ids[]" value="{{ $rule->id }}" form="bulk-form"
+                                        x-model="selected" aria-label="Select rule {{ $rule->name }}"
+                                        class="size-4 cursor-pointer accent-indigo-600" />
+                                </td>
                                 <td
-                                    class="py-4 pr-3 pl-4 text-sm font-medium whitespace-normal break-words truncate sm:pl-6 dark:text-white">
+                                    class="px-3 py-4 text-sm font-medium whitespace-normal break-words truncate dark:text-white">
                                     {{ $rule->name }}
                                     @if(in_array($rule->id, $fileRuleIds ?? []))
                                         <span title="Imported from a rule file"
@@ -132,11 +218,30 @@
                                 <td class="px-3 py-4 text-sm whitespace-normal break-words max-w-[220px] sm:max-w-[520px] text-gray-500 dark:text-gray-400">
                                     {{ Str::limit($rule->sql_query, 70) }}</td>
                                 <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                    <span
-                                        class="inline-flex items-center rounded-md  px-2 py-1 text-xs font-medium {{ $rule->status == 'active' ? 'bg-green-100 text-green-700 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-400/10 dark:text-red-400' }}">{{ ucfirst($rule->status) }}</span>
+                                    <form action="{{ route('debug-monitor.rules.status', $rule->id) }}" method="POST"
+                                        class="inline">
+                                        @csrf
+                                        <button type="submit"
+                                            title="Click to {{ $rule->status == 'active' ? 'deactivate' : 'activate' }} this rule"
+                                            class="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs font-medium {{ $rule->status == 'active' ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-400/10 dark:text-green-400 dark:hover:bg-green-400/20' : 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-400/10 dark:text-red-400 dark:hover:bg-red-400/20' }}">
+                                            {{ ucfirst($rule->status) }}
+                                            <svg class="size-3 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" clip-rule="evenodd"
+                                                    d="M13.2 2.24a.75.75 0 0 0 .04 1.06l2.1 1.95H6.75a.75.75 0 0 0 0 1.5h8.59l-2.1 1.95a.75.75 0 1 0 1.02 1.1l3.5-3.25a.75.75 0 0 0 0-1.1l-3.5-3.25a.75.75 0 0 0-1.06.04Zm-6.4 8a.75.75 0 0 0-1.06-.04l-3.5 3.25a.75.75 0 0 0 0 1.1l3.5 3.25a.75.75 0 1 0 1.02-1.1l-2.1-1.95h8.59a.75.75 0 0 0 0-1.5H4.66l2.1-1.95a.75.75 0 0 0 .04-1.06Z" />
+                                            </svg>
+                                        </button>
+                                    </form>
                                 </td>
                                 <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                    {{ optional($rule->last_run_at)->diffForHumans() }}
+                                    @if($rule->last_status)
+                                        <span title="Result of the latest run"
+                                            class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium {{ $rule->last_status === 'ok' ? 'bg-green-100 text-green-700 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-400/10 dark:text-red-400' }}">
+                                            {{ $rule->last_status === 'ok' ? 'Passed' : 'Failed' }}
+                                        </span>
+                                    @endif
+                                    <div class="{{ $rule->last_status ? 'mt-1 text-xs' : '' }}">
+                                        {{ $rule->last_run_at ? $rule->last_run_at->diffForHumans() : 'Never' }}
+                                    </div>
                                 </td>
                                 <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">
                                     <form action="{{ route('debug-monitor.rules.suppress', $rule->id) }}" method="POST"
@@ -191,7 +296,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-2 text-center text-gray-600 dark:text-gray-400">
+                                <td colspan="7" class="px-4 py-2 text-center text-gray-600 dark:text-gray-400">
                                     No records found.
                                 </td>
                             </tr>

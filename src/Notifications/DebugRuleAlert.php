@@ -21,9 +21,13 @@ class DebugRuleAlert extends Notification implements ShouldQueue
 
     public function toMail($notifiable)
     {
+        // A query error (e.g. a renamed table) is called out separately from
+        // data that doesn't match the rule's expectations.
+        $isError = isset($this->result['exception']);
+
         return (new MailMessage)
-            ->subject("Debug Rule Failed: {$this->rule->name}")
-            ->line("A debug rule has failed.")
+            ->subject(($isError ? 'Debug Rule Error: ' : 'Debug Rule Failed: ').$this->rule->name)
+            ->line($isError ? "A debug rule's query could not run." : 'A debug rule has failed.')
             ->line("Rule: {$this->rule->name}")
             ->line("Importance: {$this->rule->importance_level}")
             ->line("Result: " . json_encode($this->result))

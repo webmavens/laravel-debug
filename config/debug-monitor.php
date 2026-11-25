@@ -28,6 +28,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scheduled Runs
+    |--------------------------------------------------------------------------
+    |
+    | When true, the scheduler queues one job per due rule (a queue worker must
+    | be running), so a slow query only delays its own rule. Set to false to run
+    | due rules one after another inside the scheduler process instead.
+    |
+    */
+    'queue_runs' => env('DEBUG_MONITOR_QUEUE_RUNS', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Log Retention (in days)
     |--------------------------------------------------------------------------
     |

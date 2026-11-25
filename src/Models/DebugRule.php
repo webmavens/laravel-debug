@@ -2,6 +2,7 @@
 
 namespace Webmavens\DebugMonitor\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -23,6 +24,8 @@ class DebugRule extends Model
         'suppress',
         'suppress_notes',
         'last_run_at',
+        'last_status',
+        'failure_notified_at',
     ];
 
     protected $casts = [
@@ -30,6 +33,7 @@ class DebugRule extends Model
         'last_debug_log' => 'array',
         'suppress' => 'boolean',
         'last_run_at' => 'datetime',
+        'failure_notified_at' => 'datetime',
     ];
 
     /**
@@ -68,6 +72,24 @@ class DebugRule extends Model
         }
 
         $this->attributes['expected_json'] = json_encode($value);
+    }
+
+    /**
+     * Whether the rule is due for a scheduled run: never run yet, or at least
+     * frequency_minutes since the last run.
+     */
+    public function isDue(?Carbon $now = null): bool
+    {
+        if (! $this->last_run_at) {
+            return true;
+        }
+
+        // Compare whole minutes: a 15-minute rule that ran at 10:00:05 is due at
+        // the 10:15:00 tick, not one tick later.
+        $lastRun = Carbon::parse($this->last_run_at)->startOfMinute();
+        $tick = ($now ?? Carbon::now())->copy()->startOfMinute();
+
+        return $lastRun->diffInMinutes($tick) >= $this->frequency_minutes;
     }
 
     public function logs()

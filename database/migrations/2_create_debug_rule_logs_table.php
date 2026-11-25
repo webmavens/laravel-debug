@@ -25,6 +25,11 @@ return new class extends Migration
 
             $table->enum('status', ['ok', 'failed'])->default('ok');
             $table->timestamps();
+
+            // A rule's logs, newest first (rule page, paginated).
+            $table->index(['debug_rule_id', 'created_at']);
+            // Recent failures across all rules (dashboard).
+            $table->index(['status', 'created_at']);
         });
     }
 

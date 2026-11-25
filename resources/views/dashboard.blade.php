@@ -47,11 +47,11 @@
                                         Rule</th>
                                     <th scope="col"
                                         class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
-                                        Result
+                                        Latest Result
                                     </th>
                                     <th scope="col"
                                         class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
-                                        Run at
+                                        Last Failed
                                     </th>
                                     <th scope="col"
                                         class="py-3.5 pr-4 pl-3 sm:pr-6 text-right text-sm font-semibold text-gray-900 dark:text-gray-200">
@@ -64,7 +64,14 @@
                                     <tr>
                                         <td
                                             class="py-4 pr-3 pl-4 text-sm font-medium break-words text-gray-900 sm:pl-6 dark:text-white">
-                                            {{ $error->rule->name }}</td>
+                                            {{ $error->rule->name }}
+                                            <div class="mt-1">
+                                                <span title="Failed runs in the last 24 hours"
+                                                    class="inline-flex items-center rounded-md bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-400/10 dark:text-red-400">
+                                                    {{ $error->failures }} {{ Str::plural('failure', $error->failures) }}
+                                                </span>
+                                            </div>
+                                        </td>
 
                                         <td class="px-3 py-4 text-sm dark:text-gray-400">
                                             @php $details = $error->result; @endphp
@@ -95,7 +102,8 @@
                                                             Actual: {{ $details['row_mismatch']['actual'] }}
                                                         </span>
                                                     </div>
-                                                    <!-- <div class="mt-2">
+                                                    {{-- Blade comment (not an HTML one) so the sample rows are neither looped over nor sent to the browser.
+                                                    <div class="mt-2">
                                                         <span class="font-semibold">Rows:</span>
                                                         <ul class="list-disc ml-5 text-sm">
                                                             @foreach($details['row_mismatch']['result'] as $row)
@@ -104,7 +112,7 @@
                                                                 </li>
                                                             @endforeach
                                                         </ul>
-                                                    </div> -->
+                                                    </div> --}}
                                                 @endif
 
                                                 @if(!empty($details['data_mismatch']))
@@ -155,6 +163,11 @@
                                 @endforelse
                             </tbody>
                         </table>
+                        @if($recentErrors->hasPages())
+                            <div class="p-3 dark:text-gray-300">
+                                {{ $recentErrors->links('pagination::tailwind') }}
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>

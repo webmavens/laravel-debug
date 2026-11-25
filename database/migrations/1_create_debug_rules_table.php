@@ -33,17 +33,23 @@ return new class extends Migration
             $table->boolean('suppress')->default(false);
             $table->text('suppress_notes')->nullable();
             $table->timestamp('last_run_at')->nullable();
+            // Latest run result ('ok' / 'failed'), shown in the list and used by the "Failing" filter.
+            $table->string('last_status', 10)->nullable();
+            // Set when a failure alert was mailed; cleared when the rule passes again
+            // (one alert per failing streak + a "recovered" mail).
+            $table->timestamp('failure_notified_at')->nullable();
             $table->timestamps();
 
             // Indexes for the rules-list filters + ordering. The list orders by
             // created_at DESC with pagination and filters on name (prefix search),
-            // status, importance_level and suppress; each filter is paired with
+            // status, importance_level, suppress and last_status; each filter is paired with
             // created_at so the WHERE + ORDER BY is served from the index.
             $table->index('created_at');
             $table->index('name');
             $table->index(['status', 'created_at']);
             $table->index(['importance_level', 'created_at']);
             $table->index(['suppress', 'created_at']);
+            $table->index(['last_status', 'status', 'created_at']);
         });
     }
 

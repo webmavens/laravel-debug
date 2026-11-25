@@ -2,25 +2,28 @@
 
 namespace Webmavens\DebugMonitor\View\Composers;
 
-use Webmavens\DebugMonitor\Models\DebugRule;
 use Illuminate\View\View;
+use Webmavens\DebugMonitor\Models\DebugRule;
 
 class RecentFailedRulesComposer
 {
+    /** How many failing rules the sidebar lists before linking to the full list. */
+    private const LIMIT = 8;
+
     public function compose(View $view): void
     {
-        $view->with(
-            'recentFailedRules',
-            DebugRule::whereHas('logs', function ($q) {
-                $q->where('status', 'failed');
-            })
-            ->with(['logs' => function ($q) {
-                $q->where('status', 'failed')
-                ->latest()
-                ->limit(1);
-            }])
-            ->latest()
-            ->get()
-        );
+        // Active rules whose latest run failed, most recent first (a deactivated
+        // rule is paused, not failing). One extra row tells the sidebar whether
+        // to show a "View all" link, without a count query.
+        $rules = DebugRule::where('status', 'active')
+            ->where('last_status', 'failed')
+            ->orderByDesc('last_run_at')
+            ->limit(self::LIMIT + 1)
+            ->get(['id', 'name']);
+
+        $view->with([
+            'recentFailedRules' => $rules->take(self::LIMIT),
+            'hasMoreFailedRules' => $rules->count() > self::LIMIT,
+        ]);
     }
 }

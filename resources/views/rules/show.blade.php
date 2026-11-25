@@ -2,13 +2,62 @@
 
 @section('content')
 
+@push('styles')
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+    // Expand/collapse a log result, fetching the full JSON on first expand.
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('logResult', (url) => ({
+            open: false,
+            loading: false,
+            failed: false,
+            full: null,
+
+            async toggle() {
+                if (this.open) {
+                    this.open = false;
+                    return;
+                }
+
+                if (this.full === null) {
+                    this.loading = true;
+                    this.failed = false;
+
+                    try {
+                        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+
+                        if (! response.ok) {
+                            throw new Error(response.statusText);
+                        }
+
+                        this.full = JSON.stringify(await response.json(), null, 2);
+                    } catch (error) {
+                        this.failed = true;
+                    } finally {
+                        this.loading = false;
+                    }
+                }
+
+                // On failure keep the preview; clicking again retries.
+                this.open = this.full !== null;
+            },
+        }));
+    });
+</script>
+@endpush
+
 <div class="sm:flex sm:items-center">
     <div class="sm:flex-auto">
         <h1 class="text-base font-semibold text-gray-900 dark:text-white">Rule: {{ $rule->name }}</h1>
     </div>
     <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
         <div class="flex items-center gap-2">
-            <a href="{{ route('debug-monitor.rules.index') }}"
+            <a href="{{ $indexUrl ?? route('debug-monitor.rules.index') }}"
                 class="text-sm flex items-center gap-1 text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
                 <svg class="size-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -44,7 +93,7 @@
             <div class="mt-8">
                 <div class="sm:flex sm:items-center">
                     <div class="sm:flex-auto">
-                        <h1 class="text-base font-semibold text-gray-900 dark:text-white">Recent Logs</h1>
+                        <h1 class="text-base font-semibold text-gray-900 dark:text-white">Logs</h1>
                     </div>
                 </div>
                 <div class="mt-5 flow-root">
@@ -82,8 +131,25 @@
                                                 <span
                                                     class="inline-flex items-center rounded-md  px-2 py-1 text-xs font-medium {{ $log->status == 'ok' ? 'bg-green-100 text-green-700 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-400/10 dark:text-red-400' }}">{{ ucfirst($log->status) }}</span>
                                             </td>
-                                            <td class="px-3 py-4 text-sm break-words text-gray-500 dark:text-gray-400">
-                                                {{ json_encode($log->result, JSON_PRETTY_PRINT) }}
+                                            <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                                {{-- Only a short preview is rendered; the full result (up to
+                                                     max_rows rows) is fetched when the user expands it. --}}
+                                                @php $raw = (string) $log->getRawOriginal('result'); @endphp
+                                                @if(mb_strlen($raw) <= 160)
+                                                    <code class="break-all font-mono text-xs">{{ $raw }}</code>
+                                                @else
+                                                    <div x-data="logResult(@js(route('debug-monitor.logs.show', $log)))">
+                                                        <code x-show="! open" class="break-all font-mono text-xs">{{ Str::limit($raw, 160) }}</code>
+                                                        <pre x-show="open && full" x-cloak x-text="full"
+                                                            class="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-md bg-gray-100 p-3 font-mono text-xs text-gray-800 dark:bg-gray-900 dark:text-gray-200"></pre>
+                                                        <p x-show="failed" x-cloak class="text-xs text-red-600 dark:text-red-400">
+                                                            Couldn't load the full result. Try again.
+                                                        </p>
+                                                        <button type="button" @click="toggle()" :disabled="loading"
+                                                            class="mt-1 text-xs font-semibold text-indigo-600 hover:text-indigo-900 disabled:opacity-50 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                                            x-text="loading ? 'Loading…' : (open ? 'Show less' : 'Show full')">Show full</button>
+                                                    </div>
+                                                @endif
                                             </td>
                                             <td
                                                 class="py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-6">
@@ -106,6 +172,11 @@
 
                                     </tbody>
                                 </table>
+                                @if($logs->hasPages())
+                                    <div class="border-t border-gray-200 p-3 dark:border-white/10 dark:text-gray-300">
+                                        {{ $logs->links('pagination::tailwind') }}
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>

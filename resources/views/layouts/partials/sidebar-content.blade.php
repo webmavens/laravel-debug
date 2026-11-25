@@ -50,7 +50,7 @@
         </li>
 
         <li>
-            <div class="text-xs/6 font-semibold text-gray-400">Recent Failed Rules</div>
+            <div class="text-xs/6 font-semibold text-gray-400">Failing Rules</div>
             <ul role="list" class="-mx-2 mt-2 space-y-1">
                 @forelse($recentFailedRules as $rule)
                     <li>
@@ -80,13 +80,22 @@
                                         All clear
                                     </p>
                                     <p class="mt-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                                        No failed rules yet. Alerts will appear here when a rule starts failing.
+                                        No rules are failing right now. A rule shows up here when its latest run fails.
                                     </p>
                                 </div>
                             </div>
                         </div>
                     </li>
                 @endforelse
+
+                @if($hasMoreFailedRules ?? false)
+                    <li>
+                        <a href="{{ route('debug-monitor.rules.index', ['status' => 'failing']) }}"
+                            class="block rounded-md p-2 text-xs font-semibold text-indigo-600 hover:bg-gray-200 dark:text-indigo-400 dark:hover:bg-white/5">
+                            View all failing &rarr;
+                        </a>
+                    </li>
+                @endif
             </ul>
         </li>
     </ul>

@@ -4,36 +4,46 @@ namespace Webmavens\DebugMonitor\Console\Commands;
 
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Webmavens\DebugMonitor\Jobs\RunScheduledDebugRuleJob;
 use Webmavens\DebugMonitor\Models\DebugRule;
 use Webmavens\DebugMonitor\Services\RuleRunner;
 
 class RunDebugRulesCommand extends Command
 {
-    protected $signature = 'debug-monitor:run';
-    protected $description = 'Run all active debug rules and log any anomalies';
+    protected $signature = 'debug-monitor:run
+        {--sync : Run due rules one after another in this process instead of queueing them}';
+
+    protected $description = 'Run all active debug rules that are due and log any anomalies';
 
     public function handle(RuleRunner $runner)
     {
-        $this->info('Running debug rules...');
         $now = Carbon::now();
 
         $rules = DebugRule::where('status', 'active')
-                ->get()
-                ->filter(function ($rule) use ($now) {
-                    if (!$rule->last_run_at) {
-                        return true;
-                    }
-
-                    $lastRun = Carbon::parse($rule->last_run_at);
-                    $diff = $lastRun->diffInMinutes($now);
-
-                    return $diff >= $rule->frequency_minutes;
-                });
+            ->get()
+            ->filter(fn (DebugRule $rule) => $rule->isDue($now));
 
         if ($rules->isEmpty()) {
             $this->info('No rules due for execution.');
+
             return Command::SUCCESS;
         }
+
+        if ($this->option('sync') || ! config('debug-monitor.queue_runs', true)) {
+            return $this->runInline($rules, $runner);
+        }
+
+        // One job per rule, so a slow query only delays its own rule.
+        $rules->each(fn (DebugRule $rule) => RunScheduledDebugRuleJob::dispatch($rule->id));
+
+        $this->info("Queued {$rules->count()} due rule(s).");
+
+        return Command::SUCCESS;
+    }
+
+    private function runInline($rules, RuleRunner $runner): int
+    {
+        $this->info('Running debug rules...');
 
         foreach ($rules as $rule) {
             $this->line("Checking rule: {$rule->name}");
