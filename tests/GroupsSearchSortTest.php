@@ -128,6 +128,22 @@ class GroupsSearchSortTest extends TestCase
         $this->assertNull(DebugRule::where('name', 'Old file')->value('group_name'));
     }
 
+    public function test_editing_a_file_rule_keeps_numbers_as_numbers_in_its_file(): void
+    {
+        $rule = $this->makeRule(['name' => 'Stock9', 'frequency_minutes' => 15, 'expected_rows' => 0]);
+        $file = app(RuleSyncService::class)->export($rule)['file'];
+
+        // Form fields arrive as strings ("100", "0").
+        $this->put("/debug-monitor/rules/{$rule->id}", $this->formData([
+            'name' => 'Stock9', 'group_name' => 'Stock', 'frequency_minutes' => '100', 'expected_rows' => '0',
+        ]))->assertSessionHasNoErrors();
+
+        $json = json_decode(File::get($this->rulesPath.'/'.$file), true);
+        $this->assertSame(100, $json['frequency_minutes']);
+        $this->assertSame(0, $json['expected_rows']);
+        $this->assertSame('Stock', $json['group_name']);
+    }
+
     // ---- Search anywhere ----------------------------------------------------------
 
     public function test_search_matches_anywhere_in_the_name_group_or_sql(): void

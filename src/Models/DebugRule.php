@@ -44,6 +44,9 @@ class DebugRule extends Model
         'suppressed_until' => 'datetime',
         'failing_since' => 'datetime',
         'last_duration_ms' => 'integer',
+        // Form input arrives as strings; keep numbers as numbers (e.g. in rule files).
+        'frequency_minutes' => 'integer',
+        'expected_rows' => 'integer',
     ];
 
     /**
