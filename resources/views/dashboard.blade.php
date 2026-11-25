@@ -174,4 +174,36 @@
         </div>
     </div>
 
+    @if($slowestRules->isNotEmpty())
+    <div class="mt-9">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Slowest Rules</h3>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Active rules whose latest run took longest.</p>
+        <div class="mt-5 overflow-hidden shadow-sm outline-1 outline-black/5 sm:rounded-lg dark:shadow-none dark:-outline-offset-1 dark:outline-white/10">
+            <table class="relative w-full table-auto divide-y divide-gray-300 dark:divide-white/15">
+                <thead class="bg-white dark:bg-gray-800/75">
+                    <tr>
+                        <th scope="col" class="py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 sm:pl-6 dark:text-gray-200">Rule</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">Took</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">Last Run</th>
+                        <th scope="col" class="py-3.5 pr-4 pl-3 sm:pr-6 text-right text-sm font-semibold text-gray-900 dark:text-gray-200">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white dark:divide-white/10 dark:bg-gray-800/50">
+                    @foreach($slowestRules as $slowRule)
+                        <tr>
+                            <td class="py-4 pr-3 pl-4 text-sm font-medium text-gray-900 sm:pl-6 dark:text-white">{{ $slowRule->name }}</td>
+                            <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-700 dark:text-gray-300">{{ \Webmavens\DebugMonitor\Support\Duration::format($slowRule->last_duration_ms) }}</td>
+                            <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">{{ optional($slowRule->last_run_at)->diffForHumans() }}</td>
+                            <td class="py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-6">
+                                <a href="{{ route('debug-monitor.rules.show', $slowRule->id) }}"
+                                    class="px-2 py-1 rounded text-white text-sm bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600">View</a>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
+
 @endsection

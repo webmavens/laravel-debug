@@ -12,6 +12,7 @@ use Webmavens\DebugMonitor\Console\Commands\RunDebugRulesCommand;
 use Webmavens\DebugMonitor\Console\Commands\SyncDebugRulesCommand;
 use Webmavens\DebugMonitor\Http\Middleware\AuthorizeDebugMonitor;
 use Webmavens\DebugMonitor\View\Composers\RecentFailedRulesComposer;
+use Webmavens\DebugMonitor\View\Composers\SchedulerHealthComposer;
 
 class DebugMonitorServiceProvider extends ServiceProvider
 {
@@ -22,6 +23,11 @@ class DebugMonitorServiceProvider extends ServiceProvider
         View::composer(
             'debug-monitor::layouts.sidebar',
             RecentFailedRulesComposer::class
+        );
+
+        View::composer(
+            'debug-monitor::layouts.app',
+            SchedulerHealthComposer::class
         );
 
         $router = $this->app['router'];

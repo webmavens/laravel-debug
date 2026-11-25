@@ -23,21 +23,25 @@ You write a query that finds problem data (for example, users without an email) 
 - [Artisan Commands](#-artisan-commands)
 - [Customizing](#-customizing)
 - [Troubleshooting](#-troubleshooting)
-- [Upgrading from 1.0.x](#-upgrading-from-10x)
+- [Upgrading from 1.0.x or 1.1.0](#-upgrading-from-10x-or-110)
 
 ---
 
 ## 🚀 Features
 
-- 🔍 Create SQL **debug rules** from the web UI
+- 🔍 Create SQL **debug rules** from the web UI, and **test a query** on the form before saving it
+- 🗂️ **Groups** (e.g. Invoices, Orders) to filter, run or suppress an area's rules together
 - 🕒 Rules run **automatically on a schedule** (as queued jobs), or on demand
 - ✉️ **Email alerts** once when a rule starts failing, and again when it **recovers**: no inbox flooding
-- 📊 **Dashboard** of rules failing in the last 24 hours, plus full, paginated **run logs** per rule
-- ✅ See each rule's **last result** (Passed / Failed) and filter the list to **failing rules**
-- ☑️ **Bulk actions**: run, export, activate, deactivate, suppress, unsuppress or delete many rules at once
+- 📊 **Dashboard** of rules failing in the last 24 hours and the **slowest rules**, plus full, paginated **run logs** per rule with each run's duration
+- ✅ See each rule's **last result** (Passed / Failed), **how long it has been failing**, and filter the list to **failing rules**
+- 🔎 **Search** anywhere in a rule's name, group or SQL, and **sort** by name, status or last run
+- ☑️ **Bulk actions**: run, export, activate, deactivate, suppress, unsuppress, set group or delete many rules at once
+- 🔕 **Suppress for a while** (1 hour, 24 hours, 7 days) and alerts come back on their own
 - 🔁 **One-click status toggle** (Active ↔ Inactive) from the rules list
 - 📁 Ship **version-controlled rule files** and sync them into the database (migration-style)
-- 🛡️ **Read-only, streamed queries** with timeouts, so a rule can never change your data
+- 🛡️ **Read-only, streamed queries** with timeouts, so a rule can never change your data, optionally on a separate read-only connection
+- ⚠️ **Warning banner** when rules stop running on schedule (scheduler or queue worker down)
 - 🧹 Automatic cleanup of old logs (configurable retention)
 - 🔒 Open in `local` by default, email allowlist everywhere else
 - ⚙️ Works with **SQLite** and **MySQL**
@@ -125,12 +129,13 @@ A rule is a query plus what you expect it to return. The easiest pattern: **writ
 | Field | What it means |
 | --- | --- |
 | **Rule Name** | A label shown in the list, logs and alert emails. |
-| **SQL Query** | A single read-only query (`SELECT`, `WITH`, `SHOW` or `EXPLAIN`). Anything that changes data is rejected. |
+| **Group** | Optional. The area the rule belongs to, e.g. `Invoices`. The form suggests groups you already use. |
+| **SQL Query** | A single read-only query (`SELECT`, `WITH`, `SHOW` or `EXPLAIN`). The form won't save anything that could change data. |
 | **Expected Rows** | An operator (`=`, `>`, `<`, `>=`, `<=`) and a number. The rule **passes** when the query's row count matches, e.g. `= 0` means "this query should find nothing". |
 | **Expected Data (JSON)** | Optional. A JSON object of column → value, e.g. `{"status": "active"}`. When the query returns rows, at least one row must match **all** of these values. Leave empty to skip. |
 | **Frequency (minutes)** | How often the scheduler runs the rule. `15` = every 15 minutes. |
 | **Importance Level** | `high`, `medium` or `low`, for filtering the list and shown in alert emails. |
-| **Notification Level** | `none`: log only, never email. `default` / `urgent`: send email alerts. Both currently send the same email; use `urgent` to flag your most important rules. |
+| **Notification Level** | `none`: log only, never email. `default`: send email alerts. `urgent`: the same alerts, sent as high priority with **[Urgent]** at the start of the subject. |
 | **Status** | `active`: runs on schedule. `inactive`: paused, does not run on schedule. |
 
 ### Example rules
@@ -141,11 +146,13 @@ A rule is a query plus what you expect it to return. The easiest pattern: **writ
 | Stuck orders | `SELECT id FROM orders WHERE status = 'pending' AND created_at < NOW() - INTERVAL 2 HOUR` | 10 minutes | `= 0` |
 | Admin account exists | `SELECT id FROM users WHERE role = 'admin'` | 60 minutes | `>= 1` |
 
-> 💡 Select only the columns you need (`SELECT id ...`). Each run stores a sample of the result rows in its log.
+> 💡 Click **Test query** under the SQL box to run the query once against the expected rows and data on the form: you see whether it would pass, the row count, how long it took and the first 10 rows. Nothing is saved and no email is sent.
+>
+> Select only the columns you need (`SELECT id ...`). Each run stores a sample of the result rows in its log.
 
 ### Suppress vs. Inactive
 
-- **Suppress**: the rule **keeps running and logging**, but sends **no emails**. Use it while you're fixing a known issue.
+- **Suppress**: the rule **keeps running and logging**, but sends **no emails**. Use it while you're fixing a known issue. Choose **for 1 hour**, **24 hours** or **7 days** (alerts come back by themselves afterwards), or **until unsuppressed**.
 - **Inactive**: the rule **does not run** on schedule at all.
 
 ---
@@ -154,23 +161,27 @@ A rule is a query plus what you expect it to return. The easiest pattern: **writ
 
 ### Rules list (`/debug-monitor/rules`)
 
-- **Search** by name (starts with) and **filter** by status (Active, Inactive, Suppressed, **Failing**) and importance. **Failing** shows active rules whose latest run failed.
-- **Last Run** shows the latest result (**Passed** / **Failed**) and when it ran. Rules that never ran show **Never**.
+- **Search** for text anywhere in a rule's name, group or SQL (e.g. `store` or a table name), and **filter** by status (Active, Inactive, Suppressed, **Failing**), group and importance. **Failing** shows active rules whose latest run failed.
+- **Sort** by clicking the **Name**, **Status** or **Last Run** column header; click again to reverse. Rules that never ran stay at the bottom when sorting by Last Run.
+- Choose how many rules to show per page: **10, 25, 50 or 100** (default **25**).
+- **Last Run** shows the latest result (**Passed** / **Failed**) and when it ran (hover to see how long it took). A rule that failed more than one run in a row also shows **Failing for 3 days** (or however long). Rules that never ran show **Never**.
+- A rule's **group** shows next to its name; click it to list that group's rules.
 - Click a rule's **Status** badge to switch it between Active and Inactive.
-- Row actions: **Run now** (runs immediately, no email), **Show**, **Edit**, **Export** (to a rule file), **Delete**, and **Suppress / Unsuppress**.
-- **Bulk actions**: tick the checkboxes (the header checkbox selects the whole page) and choose **Run**, **Export**, **Activate**, **Deactivate**, **Suppress**, **Unsuppress** or **Delete**. Bulk **Run** happens in the background on the queue. Selection covers the current page.
+- Row actions: **Run now** (runs immediately, no email), **Show**, **Edit**, **Export** (to a rule file), **Delete**, and **Suppress** (pick how long) / **Unsuppress**. A timed suppression shows how long it has left.
+- **Bulk actions**: tick the checkboxes (the header checkbox selects the whole page) and choose **Run**, **Export**, **Activate**, **Deactivate**, **Suppress** (with a duration), **Unsuppress**, **Set group** (leave the name empty to remove the group) or **Delete**. Bulk **Run** happens in the background on the queue. Selection covers the current page. To act on a whole area, filter by its group first.
 - After any action, edit or delete, you return to the **same page with the same filters**.
 
 ### Dashboard (`/debug-monitor/dashboard`)
 
 - Totals for all, active, inactive and suppressed rules.
 - **Recent Errors (Last 24 Hours)**: one row per failing rule, with how many times it failed and its latest error.
+- **Slowest Rules**: the 5 active rules whose latest run took longest, to spot queries that need an index.
 
 ### Rule page
 
-- The rule's settings and its last result.
-- **Logs** of every run, newest first, 20 per page. Long results show a short preview; click **Show full** to load the complete result.
-- Delete individual logs, or suppress the rule with a note.
+- The rule's settings, its last result and how long it took, since when it has been failing, and until when it is suppressed.
+- **Logs** of every run with its **duration**, newest first, 20 per page. Long results show a short preview; click **Show full** to load the complete result.
+- Delete individual logs, or suppress the rule (for a while, or until unsuppressed) with a note.
 
 ### Sidebar
 
@@ -237,6 +248,7 @@ A rule file, e.g. `debug-monitor-rules/missing-user-emails.json`:
 ```json
 {
     "name": "Users missing email",
+    "group_name": "Users",
     "sql_query": "SELECT * FROM users WHERE email IS NULL",
     "frequency_minutes": 15,
     "importance_level": "high",
@@ -288,10 +300,45 @@ php artisan debug-monitor:clean --days=7   # keep only the last 7 days
 
 Rules run against your real database, so execution is guarded:
 
-- **Read-only only**: a rule must be a single `SELECT` / `WITH` / `SHOW` / `EXPLAIN` statement. Anything that could change data, or a second stacked statement, is rejected.
+- **Read-only only**: a rule must be a single `SELECT` / `WITH` / `SHOW` / `EXPLAIN` statement. Anything that could change data, or a second stacked statement, is rejected when you save the rule (or sync its file) and again right before every run.
 - **Streamed, not buffered**: results are streamed and counted, so a query returning millions of rows won't exhaust memory. Only a sample (`max_rows`) is kept for logs and JSON matching; the row count is always exact.
 - **Per-query timeout**: a runaway query is stopped instead of hanging the run (MySQL/MariaDB and PostgreSQL).
 - **No pile-ups**: the schedule never overlaps itself, and each rule has at most one scheduled job queued or running.
+- **No connection details in errors**: when a query fails, the rule log, the UI and the alert email show only the database's own message (e.g. `Table 'shop.orderz' doesn't exist`), without the connection details Laravel adds (host, port, full SQL). Your app's log keeps the full error.
+
+### Using a read-only database user (recommended)
+
+For protection at the database level, run rule queries on a connection whose user can only read. Create the user (MySQL example):
+
+```sql
+CREATE USER 'debug_monitor'@'%' IDENTIFIED BY 'a-strong-password';
+GRANT SELECT ON your_database.* TO 'debug_monitor'@'%';
+```
+
+Add a connection for it to `config/database.php`, next to your `mysql` connection:
+
+```php
+'mysql_readonly' => [
+    'driver' => 'mysql',
+    'host' => env('DB_HOST', '127.0.0.1'),
+    'port' => env('DB_PORT', '3306'),
+    'database' => env('DB_DATABASE'),
+    'username' => env('DB_READONLY_USERNAME'),
+    'password' => env('DB_READONLY_PASSWORD'),
+    'charset' => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci',
+],
+```
+
+Then point Debug Monitor at it in `.env`:
+
+```
+DB_READONLY_USERNAME=debug_monitor
+DB_READONLY_PASSWORD=a-strong-password
+DEBUG_MONITOR_DB_CONNECTION=mysql_readonly
+```
+
+You can also point it at a read replica, so heavy rule queries stay off your main database. Rules, logs and alert state are always stored on the app's default connection.
 
 ---
 
@@ -310,6 +357,7 @@ Set these in `.env`. To change them in code instead, [publish the config file](#
 | `DEBUG_MONITOR_QUERY_TIMEOUT` | `30` | Per-query timeout in seconds (`0` = no limit). |
 | `DEBUG_MONITOR_MAX_ROWS` | `1000` | Max result rows kept per run (for logs and JSON matching). |
 | `DEBUG_MONITOR_RULES_PATH` | `base_path('debug-monitor-rules')` | Folder for version-controlled rule files. |
+| `DEBUG_MONITOR_DB_CONNECTION` | *(app default)* | Database connection that rule queries run on, e.g. a read-only user or a replica. |
 
 ---
 
@@ -346,7 +394,8 @@ php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServic
 
 ## 🩺 Troubleshooting
 
-**Scheduled rules never run (Last Run stays "Never")**
+**Scheduled rules never run (Last Run stays "Never"), or the "Rules are not running on schedule" banner shows**
+- The banner appears on every page when an active rule is more than 10 minutes past its schedule. It goes away by itself once rules run again.
 - Is the scheduler running? (`php artisan schedule:work` locally, or the cron entry on a server)
 - Is a queue worker running? (`php artisan queue:work`) If you don't want one, set `DEBUG_MONITOR_QUEUE_RUNS=false`.
 - Is the rule **Active**? Inactive rules don't run on schedule.
@@ -360,17 +409,17 @@ php artisan vendor:publish --provider="Webmavens\DebugMonitor\DebugMonitorServic
 **403 Forbidden on `/debug-monitor/...`**
 - Outside `local`, log in with an email listed in `DEBUG_MONITOR_ALLOWED_EMAILS`.
 
-**A rule always fails with "Only read-only queries … are allowed"**
-- The query must be a single `SELECT` / `WITH` / `SHOW` / `EXPLAIN` without a trailing `;`.
+**"Only read-only queries … are allowed" when saving a rule**
+- The query must be a single `SELECT` / `WITH` / `SHOW` / `EXPLAIN` statement. One trailing `;` is fine; two statements are not.
 
 **New UI features don't show after an update**
 - You probably published the views. Re-publish them with `--tag=views --force`, or delete `resources/views/vendor/debug-monitor`.
 
 ---
 
-## 🔄 Upgrading from 1.0.x
+## 🔄 Upgrading from 1.0.x or 1.1.0
 
-This release adds columns and indexes to the package's **existing** migrations instead of adding new ones. If you installed 1.0.x and already ran its migrations, recreate the package's tables:
+These releases add columns and indexes to the package's **existing** migrations instead of adding new ones (1.1.0 added the last result and alert tracking; 1.1.1 adds groups, timed suppression, failing-since and run durations). If you already ran an older version's migrations, recreate the package's tables:
 
 ```bash
 php artisan migrate:refresh --path=vendor/webmavens/debug-monitor/database/migrations
@@ -389,6 +438,13 @@ For any issues, please open an issue in the [GitHub repository](https://github.c
 ## 🤝 Contributing
 
 Pull requests are welcome! Fork the repo and open a PR.
+
+Run the tests before you push (they also run on GitHub Actions for Laravel 11, 12 and 13):
+
+```bash
+composer install
+composer test
+```
 
 ## 🧠 License
 

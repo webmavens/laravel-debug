@@ -3,6 +3,9 @@
 namespace Webmavens\DebugMonitor\Services;
 
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Connection;
+use Illuminate\Database\QueryException;
 use Illuminate\Notifications\Notification as BaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +14,7 @@ use Webmavens\DebugMonitor\Models\DebugRule;
 use Webmavens\DebugMonitor\Models\DebugRuleLog;
 use Webmavens\DebugMonitor\Notifications\DebugRuleAlert;
 use Webmavens\DebugMonitor\Notifications\DebugRuleRecovered;
+use Webmavens\DebugMonitor\Support\QueryGuard;
 
 /**
  * Executes a single debug rule: runs its query, evaluates the expectations,
@@ -20,7 +24,7 @@ use Webmavens\DebugMonitor\Notifications\DebugRuleRecovered;
  * action so both behave identically.
  *
  * Reliability notes for complex/large queries:
- *  - The query is streamed with DB::cursor() so the full result set is never
+ *  - The query is streamed with a cursor so the full result set is never
  *    loaded into memory just to be counted; only a bounded sample (max_rows)
  *    is retained for logging and JSON matching.
  *  - Queries are held to a per-statement timeout (query_timeout) where the
@@ -47,6 +51,7 @@ class RuleRunner
     {
         $now = Carbon::now();
         $exception = null;
+        $started = hrtime(true);
 
         try {
             [$errorLog, $sample] = $this->evaluate($rule);
@@ -56,16 +61,17 @@ class RuleRunner
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            $exception = $e->getMessage();
+            $exception = $this->errorMessage($e);
             $errorLog = ['exception' => $exception];
             $sample = null;
         }
 
+        $durationMs = $this->elapsedMs($started);
         $isValid = empty($errorLog);
-        $result = $this->saveLog($rule, $isValid, $isValid ? $sample : $errorLog);
+        $result = $this->saveLog($rule, $isValid, $isValid ? $sample : $errorLog, $durationMs);
 
         if (! $isValid) {
-            if ($rule->suppress) {
+            if ($rule->isSuppressed($now)) {
                 Log::info("Rule failed but suppressed: {$rule->name}", $errorLog);
             } elseif ($rule->notification_level === 'none') {
                 Log::warning("Rule failed (no notification): {$rule->name}", $errorLog);
@@ -79,6 +85,9 @@ class RuleRunner
         $rule->last_run_at = $now;
         $rule->last_status = $isValid ? 'ok' : 'failed';
         $rule->last_debug_log = $result;
+        $rule->last_duration_ms = $durationMs;
+        // Keep the start of a failing streak; a pass ends it.
+        $rule->failing_since = $isValid ? null : ($rule->failing_since ?? $now);
         $rule->save();
 
         return [
@@ -96,19 +105,20 @@ class RuleRunner
      * JSON-encoded), a short note is stored instead, so the run is still
      * recorded and last_run_at still moves on.
      */
-    protected function saveLog(DebugRule $rule, bool $isValid, mixed $result): mixed
+    protected function saveLog(DebugRule $rule, bool $isValid, mixed $result, int $durationMs): mixed
     {
         $status = $isValid ? 'ok' : 'failed';
+        $log = ['debug_rule_id' => $rule->id, 'status' => $status, 'duration_ms' => $durationMs];
 
         try {
-            DebugRuleLog::create(['debug_rule_id' => $rule->id, 'result' => $result, 'status' => $status]);
+            DebugRuleLog::create($log + ['result' => $result]);
 
             return $result;
         } catch (\Throwable $e) {
             Log::error("Could not save the result of rule: {$rule->name}", ['error' => $e->getMessage()]);
 
-            $result = ['exception' => 'The run result could not be saved: '.$e->getMessage()];
-            DebugRuleLog::create(['debug_rule_id' => $rule->id, 'result' => $result, 'status' => $status]);
+            $result = ['exception' => 'The run result could not be saved: '.$this->errorMessage($e)];
+            DebugRuleLog::create($log + ['result' => $result]);
 
             return $result;
         }
@@ -119,10 +129,71 @@ class RuleRunner
      *
      * @return array{0: array, 1: array} [errorLog (empty when the rule passes), result sample]
      */
+    /**
+     * Try a query and its expectations without saving anything (the form's
+     * "Test query" button). No log is written, no alert is sent, and no rule
+     * is changed.
+     *
+     * @param  array{sql_query: string, expected_rows_operator?: string, expected_rows?: int|null, expected_json?: string|array|null}  $attributes
+     * @return array{status: string, rows: int|null, sample: array, sample_truncated: bool, problems: string[], error: string|null, duration_ms: int}
+     */
+    public function test(array $attributes, int $sampleSize = 10): array
+    {
+        $rule = new DebugRule(array_intersect_key($attributes, array_flip([
+            'sql_query', 'expected_rows_operator', 'expected_rows', 'expected_json',
+        ])));
+        $started = hrtime(true);
+
+        try {
+            [$errorLog, $sample, $rows] = $this->evaluate($rule);
+        } catch (\Throwable $e) {
+            return [
+                'status' => 'error',
+                'rows' => null,
+                'sample' => [],
+                'sample_truncated' => false,
+                'problems' => [],
+                'error' => $this->errorMessage($e),
+                'duration_ms' => $this->elapsedMs($started),
+            ];
+        }
+
+        $problems = [];
+
+        if (isset($errorLog['row_mismatch'])) {
+            $problems[] = "Expected {$errorLog['row_mismatch']['expected']} rows, got {$rows}.";
+        }
+
+        if (isset($errorLog['message'])) {
+            $problems[] = $errorLog['message'];
+        }
+
+        return [
+            'status' => $problems === [] ? 'ok' : 'failed',
+            'rows' => $rows,
+            'sample' => array_slice($sample, 0, $sampleSize),
+            'sample_truncated' => $rows > $sampleSize,
+            'problems' => $problems,
+            'error' => null,
+            'duration_ms' => $this->elapsedMs($started),
+        ];
+    }
+
+    /** Whole milliseconds since an hrtime(true) reading. */
+    protected function elapsedMs(int $started): int
+    {
+        return (int) round((hrtime(true) - $started) / 1_000_000);
+    }
+
+    /**
+     * Run the rule's query and compare it with the expectations.
+     *
+     * @return array{0: array, 1: array, 2: int} [errorLog (empty when it passes), sample rows, row count]
+     */
     protected function evaluate(DebugRule $rule): array
     {
-        $sql = $this->normalizeQuery($rule->sql_query);
-        $this->assertReadOnly($sql);
+        $sql = QueryGuard::normalize($rule->sql_query);
+        QueryGuard::assertReadOnly($sql);
 
         $operator = $rule->expected_rows_operator ?? '=';
         $expected = $rule->expected_rows ?? 0;
@@ -174,7 +245,7 @@ class RuleRunner
             }
         }
 
-        return [$errorLog, $data['sample']];
+        return [$errorLog, $data['sample'], $actual];
     }
 
     /**
@@ -182,9 +253,9 @@ class RuleRunner
      * keep failure_notified_at in step (saved by the caller). Returns whether
      * a mail was sent.
      */
-    protected function sendAlerts(DebugRule $rule, bool $isValid, array $errorLog, Carbon $now): bool
+    protected function sendAlerts(DebugRule $rule, bool $isValid, array $errorLog, CarbonInterface $now): bool
     {
-        $alertsEnabled = ! $rule->suppress && $rule->notification_level !== 'none';
+        $alertsEnabled = ! $rule->isSuppressed($now) && $rule->notification_level !== 'none';
 
         if (! $isValid) {
             // Already alerted for this failing streak, or alerts are off.
@@ -250,7 +321,7 @@ class RuleRunner
         $matched = $expectedJson === null ? null : false;
         $mismatches = [];
 
-        foreach (DB::cursor($sql) as $row) {
+        foreach ($this->connection()->cursor($sql) as $row) {
             $rowArray = (array) $row;
             $actual++;
 
@@ -292,55 +363,28 @@ class RuleRunner
     }
 
     /**
-     * Trim whitespace and a single trailing semicolon from the query so it can
-     * be executed as one statement.
+     * The connection rule queries run on: config('debug-monitor.connection'),
+     * e.g. a read-only database user or a replica, or the app's default.
+     * Rules and logs themselves always use the default connection.
      */
-    protected function normalizeQuery(mixed $sql): string
+    protected function connection(): Connection
     {
-        $sql = trim((string) $sql);
-
-        if (str_ends_with($sql, ';')) {
-            $sql = rtrim(substr($sql, 0, -1));
-        }
-
-        return $sql;
+        return DB::connection(config('debug-monitor.connection') ?: null);
     }
 
     /**
-     * Guard against anything that could mutate data or stack extra statements.
-     * Can be disabled via config('debug-monitor.read_only').
+     * A short reason for the rule log, the UI and the alert mail: the
+     * database's own message, without the connection details (host, port,
+     * database name, full SQL) that Laravel adds to query errors. The app log
+     * keeps the full message.
      */
-    protected function assertReadOnly(string $sql): void
+    protected function errorMessage(\Throwable $e): string
     {
-        if (! config('debug-monitor.read_only', true)) {
-            return;
+        if ($e instanceof QueryException && $e->getPrevious() !== null) {
+            return $e->getPrevious()->getMessage();
         }
 
-        if ($sql === '') {
-            throw new \RuntimeException('The rule query is empty.');
-        }
-
-        // A remaining semicolon means a second (stacked) statement.
-        if (str_contains($sql, ';')) {
-            throw new \RuntimeException('Only a single SQL statement is allowed.');
-        }
-
-        if (! preg_match('/^\s*(SELECT|WITH|SHOW|EXPLAIN)\b/i', $sql)) {
-            throw new \RuntimeException('Only read-only queries (SELECT/WITH/SHOW/EXPLAIN) are allowed.');
-        }
-
-        // Belt-and-suspenders: reject data-modifying keywords anywhere in the
-        // statement. This closes data-modifying CTEs (e.g. Postgres
-        // "WITH x AS (DELETE ... RETURNING ...) SELECT ...") that would slip
-        // past the leading-keyword check above.
-        $forbidden = [
-            'INSERT', 'UPDATE', 'DELETE', 'DROP', 'TRUNCATE', 'ALTER',
-            'CREATE', 'REPLACE', 'MERGE', 'GRANT', 'REVOKE', 'CALL', 'INTO',
-        ];
-
-        if (preg_match('/\b('.implode('|', $forbidden).')\b/i', $sql)) {
-            throw new \RuntimeException('The query contains a data-modifying keyword and was blocked.');
-        }
+        return $e->getMessage();
     }
 
     /**
@@ -359,9 +403,11 @@ class RuleRunner
         $ms = $seconds * 1000;
 
         try {
-            match (DB::getDriverName()) {
-                'mysql', 'mariadb' => DB::statement("SET SESSION max_execution_time = {$ms}"),
-                'pgsql' => DB::statement("SET statement_timeout = {$ms}"),
+            $db = $this->connection();
+
+            match ($db->getDriverName()) {
+                'mysql', 'mariadb' => $db->statement("SET SESSION max_execution_time = {$ms}"),
+                'pgsql' => $db->statement("SET statement_timeout = {$ms}"),
                 default => null,
             };
         } catch (\Throwable $e) {
@@ -381,9 +427,11 @@ class RuleRunner
         }
 
         try {
-            match (DB::getDriverName()) {
-                'mysql', 'mariadb' => DB::statement('SET SESSION max_execution_time = 0'),
-                'pgsql' => DB::statement('RESET statement_timeout'),
+            $db = $this->connection();
+
+            match ($db->getDriverName()) {
+                'mysql', 'mariadb' => $db->statement('SET SESSION max_execution_time = 0'),
+                'pgsql' => $db->statement('RESET statement_timeout'),
                 default => null,
             };
         } catch (\Throwable $e) {

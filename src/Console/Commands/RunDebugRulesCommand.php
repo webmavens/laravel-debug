@@ -19,6 +19,9 @@ class RunDebugRulesCommand extends Command
     {
         $now = Carbon::now();
 
+        // Timed suppressions that have ended stop showing as suppressed.
+        DebugRule::releaseExpiredSuppressions();
+
         $rules = DebugRule::where('status', 'active')
             ->get()
             ->filter(fn (DebugRule $rule) => $rule->isDue($now));
@@ -73,7 +76,7 @@ class RunDebugRulesCommand extends Command
             return;
         }
 
-        if ($rule->suppress) {
+        if ($rule->isSuppressed()) {
             $this->warn("⚠️ Rule failed but suppressed: {$rule->name}");
         } elseif ($rule->notification_level === 'none') {
             $this->warn("⚠️ Rule failed (no notification): {$rule->name}");

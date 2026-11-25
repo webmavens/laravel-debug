@@ -31,7 +31,11 @@
             </button>
         </form>
         <form method="GET" id="filter" class="flex flex-wrap items-center gap-2">
-            <input type="search" name="search" value="{{ request('search') }}" placeholder="Name starts with…"
+            @if($sort)
+                <input type="hidden" name="sort" value="{{ $sort }}">
+                <input type="hidden" name="direction" value="{{ $direction }}">
+            @endif
+            <input type="search" name="search" value="{{ request('search') }}" placeholder="Search name, group or SQL…" aria-label="Search rules"
                 onsearch="document.getElementById('filter').submit()"
                 class="rounded-md bg-white py-1.5 pl-3 pr-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500" />
 
@@ -49,12 +53,44 @@
                 </svg>
             </div>
 
+            @if(! empty($groups))
+            <div class="grid grid-cols-1">
+                <select name="group" id="group" aria-label="Group"
+                    class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:*:bg-gray-800 dark:outline-white/10 dark:focus-visible:outline-indigo-500"
+                    onchange="document.getElementById('filter').submit()">
+                    <option value="" @selected(! request('group'))>All groups</option>
+                    @foreach($groups as $groupOption)
+                        <option value="{{ $groupOption }}" @selected(request('group') === $groupOption)>{{ $groupOption }}</option>
+                    @endforeach
+                    <option value="{{ $noGroup }}" @selected(request('group') === $noGroup)>No group</option>
+                </select>
+                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"
+                    class="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500 sm:size-4 dark:text-gray-400">
+                    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                </svg>
+            </div>
+            @endif
+
             <div class="grid grid-cols-1">
                 <select name="importance_level" id="importance_level"
                     class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:*:bg-gray-800 dark:outline-white/10 dark:focus-visible:outline-indigo-500"
                     onchange="document.getElementById('filter').submit()">
                     @foreach(['all' => 'All importance', 'high' => 'High', 'medium' => 'Medium', 'low' => 'Low'] as $value => $label)
                         <option value="{{ $value }}" @selected(request('importance_level', 'all') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"
+                    class="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500 sm:size-4 dark:text-gray-400">
+                    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                </svg>
+            </div>
+
+            <div class="grid grid-cols-1">
+                <select name="per_page" id="per_page" aria-label="Rows per page"
+                    class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:*:bg-gray-800 dark:outline-white/10 dark:focus-visible:outline-indigo-500"
+                    onchange="document.getElementById('filter').submit()">
+                    @foreach($perPageOptions as $option)
+                        <option value="{{ $option }}" @selected($perPage === $option)>{{ $option }} per page</option>
                     @endforeach
                 </select>
                 <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"
@@ -115,9 +151,34 @@
                 class="{{ $bulkBtn }} text-indigo-700 dark:text-indigo-300">
                 Suppress
             </button>
+            <select name="duration" aria-label="Suppress for"
+                class="rounded-md bg-white py-1 pl-2 pr-7 text-xs font-medium text-gray-700 shadow-xs ring-1 ring-gray-300 ring-inset dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:*:bg-gray-800">
+                <option value="forever">until unsuppressed</option>
+                <option value="1">for 1 hour</option>
+                <option value="24">for 24 hours</option>
+                <option value="168">for 7 days</option>
+            </select>
             <button type="submit" name="action" value="unsuppress"
                 class="{{ $bulkBtn }} text-indigo-700 dark:text-indigo-300">
                 Unsuppress
+            </button>
+
+            <span class="{{ $divider }}" aria-hidden="true"></span>
+
+            {{-- Enter here sets the group (instead of submitting with the first button, Run). --}}
+            <input type="text" name="group_name" list="debug-monitor-groups" maxlength="100"
+                placeholder="Group name" aria-label="Group name for the selected rules"
+                @keydown.enter.prevent="$refs.setGroup.click()"
+                class="w-32 rounded-md bg-white px-2 py-1 text-xs text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset placeholder:text-gray-400 dark:bg-white/10 dark:text-white dark:ring-white/10" />
+            <datalist id="debug-monitor-groups">
+                @foreach($groups as $groupOption)
+                    <option value="{{ $groupOption }}">
+                @endforeach
+            </datalist>
+            <button type="submit" name="action" value="group" x-ref="setGroup"
+                @click="const group = $el.form.elements.group_name.value.trim(); if (! confirm(group ? 'Move ' + selected.length + ' rule(s) to group &quot;' + group + '&quot;?' : 'Remove ' + selected.length + ' rule(s) from their group?')) $event.preventDefault()"
+                class="{{ $bulkBtn }} text-gray-700 dark:text-gray-300">
+                Set group
             </button>
 
             <span class="{{ $divider }}" aria-hidden="true"></span>
@@ -150,20 +211,21 @@
                                     @change="toggleAll($event.target.checked)"
                                     class="size-4 cursor-pointer accent-indigo-600" />
                             </th>
-                            <th scope="col"
+                            <th scope="col" @if($sort === 'name') aria-sort="{{ $direction === 'asc' ? 'ascending' : 'descending' }}" @endif
                                 class="w-2/5 sm:w-1/5 px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
-                                Name</th>
+                                @include('debug-monitor::rules.partials.sort-header', ['key' => 'name', 'label' => 'Name'])
+                            </th>
                             <th scope="col"
                                 class="w-2/5 sm:w-1/3 px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
                                 Query
                             </th>
-                            <th scope="col"
+                            <th scope="col" @if($sort === 'status') aria-sort="{{ $direction === 'asc' ? 'ascending' : 'descending' }}" @endif
                                 class="w-1/12 px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
-                                Status
+                                @include('debug-monitor::rules.partials.sort-header', ['key' => 'status', 'label' => 'Status'])
                             </th>
-                            <th scope="col"
+                            <th scope="col" @if($sort === 'last_run') aria-sort="{{ $direction === 'asc' ? 'ascending' : 'descending' }}" @endif
                                 class="w-1/12 px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
-                                Last Run
+                                @include('debug-monitor::rules.partials.sort-header', ['key' => 'last_run', 'label' => 'Last Run'])
                             </th>
                             <th scope="col"
                                 class="w-24 px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
@@ -214,6 +276,13 @@
                                             file
                                         </span>
                                     @endif
+                                    @if($rule->group_name)
+                                        <a href="{{ route('debug-monitor.rules.index', ['group' => $rule->group_name]) }}"
+                                            title="Show the rules in this group"
+                                            class="ml-1 inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-400/10 dark:text-indigo-300 dark:hover:bg-indigo-400/20">
+                                            {{ $rule->group_name }}
+                                        </a>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-4 text-sm whitespace-normal break-words max-w-[220px] sm:max-w-[520px] text-gray-500 dark:text-gray-400">
                                     {{ Str::limit($rule->sql_query, 70) }}</td>
@@ -239,19 +308,51 @@
                                             {{ $rule->last_status === 'ok' ? 'Passed' : 'Failed' }}
                                         </span>
                                     @endif
-                                    <div class="{{ $rule->last_status ? 'mt-1 text-xs' : '' }}">
+                                    <div class="{{ $rule->last_status ? 'mt-1 text-xs' : '' }}"
+                                        @if($rule->last_duration_ms !== null) title="Took {{ \Webmavens\DebugMonitor\Support\Duration::format($rule->last_duration_ms) }}" @endif>
                                         {{ $rule->last_run_at ? $rule->last_run_at->diffForHumans() : 'Never' }}
                                     </div>
+                                    {{-- Only once it failed more than one run in a row; a first failure is already "Failed · just now". --}}
+                                    @if($rule->last_status === 'failed' && $rule->failing_since && $rule->last_run_at && $rule->failing_since->lt($rule->last_run_at))
+                                        <div class="mt-0.5 text-xs text-red-600 dark:text-red-400"
+                                            title="Failing since {{ $rule->failing_since->toDayDateTimeString() }}">
+                                            Failing for {{ $rule->failing_since->diffForHumans(null, true) }}
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">
                                     <form action="{{ route('debug-monitor.rules.suppress', $rule->id) }}" method="POST"
                                         class="inline">
                                         @csrf
-                                        <input type="hidden" name="action"
-                                            value="{{ $rule->suppress ? 'unsuppress' : 'suppress' }}">
-                                        <button type="submit"
-                                            class="rounded-sm bg-indigo-600 px-2 py-1 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500"
-                                            onclick="return confirm('Are you sure you want to {{ $rule->suppress ? 'unsuppress' : 'suppress' }} this rule?')">{{ $rule->suppress ? 'Unsuppress' : 'Suppress' }}</button>
+                                        @if($rule->isSuppressed())
+                                            <input type="hidden" name="action" value="unsuppress">
+                                            <button type="submit"
+                                                class="rounded-sm bg-indigo-600 px-2 py-1 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500"
+                                                onclick="return confirm('Are you sure you want to unsuppress this rule?')">Unsuppress</button>
+                                            @if($rule->suppressed_until)
+                                                <div class="mt-1 text-xs" title="Suppressed until {{ $rule->suppressed_until->toDayDateTimeString() }}">
+                                                    for {{ $rule->suppressed_until->diffForHumans(null, true) }}
+                                                </div>
+                                            @endif
+                                        @else
+                                            {{-- Picking a duration submits the form. --}}
+                                            <input type="hidden" name="action" value="suppress">
+                                            <div class="grid grid-cols-1">
+                                                <select name="duration" aria-label="Suppress {{ $rule->name }}"
+                                                    onchange="if (this.value) this.form.requestSubmit()"
+                                                    class="col-start-1 row-start-1 cursor-pointer appearance-none rounded-sm bg-indigo-600 py-1 pr-6 pl-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:hover:bg-indigo-400 *:bg-white *:font-normal *:text-gray-900 dark:*:bg-gray-800 dark:*:text-gray-200">
+                                                    <option value="" selected disabled hidden>Suppress</option>
+                                                    <option value="1">For 1 hour</option>
+                                                    <option value="24">For 24 hours</option>
+                                                    <option value="168">For 7 days</option>
+                                                    <option value="forever">Until unsuppressed</option>
+                                                </select>
+                                                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"
+                                                    class="pointer-events-none col-start-1 row-start-1 mr-1.5 size-3.5 self-center justify-self-end text-white/80">
+                                                    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                                                </svg>
+                                            </div>
+                                        @endif
                                     </form>
                                 </td>
                                 <td class="py-4 pr-4 pl-3 text-right text-sm font-medium sm:pr-6">

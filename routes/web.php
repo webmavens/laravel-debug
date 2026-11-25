@@ -11,6 +11,7 @@ Route::middleware(['web', 'debug-monitor.auth'])
         Route::get('/rules', [DebugRuleController::class, 'index'])->name('rules.index');
         Route::post('/rules/sync', [DebugRuleController::class, 'sync'])->name('rules.sync');
         Route::post('/rules/bulk', [DebugRuleController::class, 'bulk'])->name('rules.bulk');
+        Route::post('/rules/test', [DebugRuleController::class, 'test'])->name('rules.test');
         Route::post('/rules/{rule}/export', [DebugRuleController::class, 'export'])->name('rules.export');
         Route::post('/rules/{rule}/run', [DebugRuleController::class, 'run'])->name('rules.run');
         Route::post('/rules/{rule}/status', [DebugRuleController::class, 'toggleStatus'])->name('rules.status');

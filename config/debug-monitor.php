@@ -69,6 +69,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Rule Query Connection
+    |--------------------------------------------------------------------------
+    |
+    | The database connection (a name from config/database.php) that rule
+    | queries run on. Point it at a read-only database user or a read replica
+    | to protect your data at the database level, on top of the read_only
+    | check. Leave empty to use the app's default connection. Rules and their
+    | logs are always stored on the default connection.
+    |
+    */
+    'connection' => env('DEBUG_MONITOR_DB_CONNECTION'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Rule Files Directory
     |--------------------------------------------------------------------------
     |

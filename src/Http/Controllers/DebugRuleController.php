@@ -20,7 +20,25 @@ class DebugRuleController extends Controller
      */
     private const INDEX_QUERY_KEY = 'debug-monitor.rules_index_query';
 
-    private const BULK_ACTIONS = ['run', 'export', 'activate', 'deactivate', 'suppress', 'unsuppress', 'delete'];
+    private const BULK_ACTIONS = ['run', 'export', 'activate', 'deactivate', 'suppress', 'unsuppress', 'group', 'delete'];
+
+    /** How long a rule can be suppressed for, in hours; "forever" lasts until unsuppressed. */
+    private const SUPPRESS_DURATIONS = ['1', '24', '168', 'forever'];
+
+    /** Sortable list columns (query value => column) and the direction each starts in. */
+    private const SORTS = [
+        'name' => ['column' => 'name', 'direction' => 'asc'],
+        'status' => ['column' => 'status', 'direction' => 'asc'],
+        'last_run' => ['column' => 'last_run_at', 'direction' => 'desc'],
+    ];
+
+    /** Group filter value for rules without a group. */
+    private const NO_GROUP = '__none__';
+
+    /** "Rows per page" choices on the rules list; anything else falls back to the default. */
+    private const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+
+    private const DEFAULT_PER_PAGE = 25;
 
     public function index(Request $request, RuleSyncService $service)
     {
@@ -29,18 +47,40 @@ class DebugRuleController extends Controller
 
         $search = trim((string) $request->get('search', ''));
         $status = $request->get('status');
+        $group = $request->get('group');
+
+        $sort = array_key_exists($request->get('sort'), self::SORTS) ? $request->get('sort') : null;
+        $direction = null;
+        if ($sort) {
+            $direction = in_array($request->get('direction'), ['asc', 'desc'], true)
+                ? $request->get('direction')
+                : self::SORTS[$sort]['direction'];
+        }
+
+        $perPage = (int) $request->get('per_page', self::DEFAULT_PER_PAGE);
+        if (! in_array($perPage, self::PER_PAGE_OPTIONS, true)) {
+            $perPage = self::DEFAULT_PER_PAGE;
+        }
 
         $rules = DebugRule::query()
-            // Prefix match (name LIKE 'term%') so the name index can serve the search.
-            ->when($search !== '', fn ($query) => $query->where('name', 'like', $search.'%'))
+            ->when($search !== '', fn ($query) => $this->search($query, $search))
+            ->when($group === self::NO_GROUP, fn ($query) => $query->whereNull('group_name'))
+            ->when(is_string($group) && $group !== '' && $group !== self::NO_GROUP, fn ($query) => $query->where('group_name', $group))
             ->when(in_array($level, $allowedLevels), fn ($query) => $query->where('importance_level', $level))
             ->when($status === 'active', fn ($query) => $query->where('status', 'active'))
             ->when($status === 'inactive', fn ($query) => $query->where('status', 'inactive'))
-            ->when($status === 'suppressed', fn ($query) => $query->where('suppress', true))
+            ->when($status === 'suppressed', fn ($query) => $query->suppressed())
             // Active rules whose latest run failed (a deactivated rule is paused, not failing).
             ->when($status === 'failing', fn ($query) => $query->where('status', 'active')->where('last_status', 'failed'))
+            // Never-run rules go last whichever way Last Run is sorted.
+            ->when($sort === 'last_run', fn ($query) => $query->orderByRaw('last_run_at is null'))
+            ->when($sort, fn ($query) => $query->orderBy(self::SORTS[$sort]['column'], $direction))
+            // Newest first by default, and within equal sort values. id breaks
+            // created_at ties (rules synced from files share a second); without it
+            // MySQL may shuffle tied rows between pages.
             ->latest()
-            ->paginate(10)
+            ->orderByDesc('id')
+            ->paginate($perPage)
             ->withQueryString();
 
         // A page past the end (e.g. after deleting the last rule on the last
@@ -61,14 +101,71 @@ class DebugRuleController extends Controller
 
         $pendingCount = $service->pendingCount();
 
-        return view('debug-monitor::rules.index', compact('rules', 'fileRuleIds', 'pendingCount'));
+        $perPageOptions = self::PER_PAGE_OPTIONS;
+        $groups = $this->groups();
+        $noGroup = self::NO_GROUP;
+        $sortLinks = $this->sortLinks($request, $sort, $direction);
+
+        return view('debug-monitor::rules.index', compact(
+            'rules', 'fileRuleIds', 'pendingCount', 'perPage', 'perPageOptions',
+            'groups', 'noGroup', 'sort', 'direction', 'sortLinks'
+        ));
+    }
+
+    /**
+     * Match the term anywhere in the name, group or SQL. % and _ in the term
+     * are matched literally.
+     */
+    private function search($query, string $search)
+    {
+        $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search).'%';
+
+        return $query->where(function ($query) use ($like) {
+            foreach (['name', 'group_name', 'sql_query'] as $column) {
+                $query->orWhereRaw($query->getGrammar()->wrap($column)." like ? escape '!'", [$like]);
+            }
+        });
+    }
+
+    /** Existing group names, alphabetically. */
+    private function groups(): array
+    {
+        return DebugRule::whereNotNull('group_name')->distinct()->orderBy('group_name')->pluck('group_name')->all();
+    }
+
+    /**
+     * Header link for each sortable column: the current filters, page 1, and
+     * the column's sort (toggled if it is already the active one).
+     *
+     * @return array<string, string>
+     */
+    private function sortLinks(Request $request, ?string $sort, ?string $direction): array
+    {
+        $query = $request->except(['page', 'sort', 'direction']);
+
+        return collect(self::SORTS)->mapWithKeys(function (array $config, string $key) use ($query, $sort, $direction) {
+            $next = $key === $sort ? ($direction === 'asc' ? 'desc' : 'asc') : $config['direction'];
+
+            return [$key => route('debug-monitor.rules.index', $query + ['sort' => $key, 'direction' => $next])];
+        })->all();
+    }
+
+    /** Run a query from the rule form without saving it (the "Test query" button). */
+    public function test(Request $request, RuleRunner $runner)
+    {
+        $validated = $request->validate(array_intersect_key(DebugRule::validationRules(), array_flip([
+            'sql_query', 'expected_rows', 'expected_json',
+        ])) + ['expected_rows_operator' => 'nullable|in:=,>,<,>=,<=']);
+
+        return response()->json($runner->test($validated));
     }
 
     public function create()
     {
         $indexUrl = $this->indexUrl();
+        $groups = $this->groups();
 
-        return view('debug-monitor::rules.form', compact('indexUrl'));
+        return view('debug-monitor::rules.form', compact('indexUrl', 'groups'));
     }
 
     public function store(Request $request)
@@ -182,8 +279,9 @@ class DebugRuleController extends Controller
             'export' => $this->bulkExport($rules, $service),
             'activate' => $this->bulkStatus($rules, 'active', $service),
             'deactivate' => $this->bulkStatus($rules, 'inactive', $service),
-            'suppress' => $this->bulkSuppress($rules, true),
+            'suppress' => $this->bulkSuppress($rules, true, $request->input('duration', 'forever')),
             'unsuppress' => $this->bulkSuppress($rules, false),
+            'group' => $this->bulkGroup($rules, $request->input('group_name'), $service),
             'delete' => $this->bulkDelete($rules, $service),
         };
 
@@ -238,14 +336,18 @@ class DebugRuleController extends Controller
     }
 
     /** @return array{0: string, 1: string} */
-    private function bulkSuppress(Collection $rules, bool $suppress): array
+    private function bulkSuppress(Collection $rules, bool $suppress, mixed $duration = null): array
     {
-        $changed = $rules->reject(fn (DebugRule $rule) => $rule->suppress === $suppress);
+        if ($suppress && ! in_array($duration, self::SUPPRESS_DURATIONS, true)) {
+            return ['error', 'Choose how long to suppress the rules for.'];
+        }
 
-        $changed->each(fn (DebugRule $rule) => $rule->update([
-            'suppress' => $suppress,
-            'suppress_notes' => $suppress ? 'Suppressed Manually' : null,
-        ]));
+        // A suppression that has ended counts as not suppressed.
+        $changed = $rules->reject(fn (DebugRule $rule) => $rule->isSuppressed() === $suppress);
+
+        $changed->each(fn (DebugRule $rule) => $rule->update($suppress
+            ? $this->suppression($duration, 'Suppressed Manually')
+            : $this->suppression(null)));
 
         $verb = $suppress ? 'Suppressed' : 'Unsuppressed';
 
@@ -254,6 +356,50 @@ class DebugRuleController extends Controller
     }
 
     /** @return array{0: string, 1: string} */
+    private function bulkGroup(Collection $rules, mixed $group, RuleSyncService $service): array
+    {
+        $group = $this->normalizeGroup($group);
+
+        if ($group !== null && mb_strlen($group) > 100) {
+            return ['error', 'A group name can be at most 100 characters.'];
+        }
+
+        $rules->each(function (DebugRule $rule) use ($group, $service) {
+            $rule->update(['group_name' => $group]);
+            // The group is part of the rule file, so keep a linked file in step.
+            $service->writeLinkedFile($rule);
+        });
+
+        return ['success', $group === null
+            ? "Removed {$rules->count()} rule(s) from their group."
+            : "Moved {$rules->count()} rule(s) to group \"{$group}\"."];
+    }
+
+    /** Trim a group name; blank means no group. */
+    private function normalizeGroup(mixed $group): ?string
+    {
+        $group = trim((string) $group);
+
+        return $group === '' ? null : $group;
+    }
+
+    /**
+     * Attributes for suppressing a rule for $duration (hours or "forever"),
+     * or for unsuppressing it when $duration is null.
+     */
+    private function suppression(?string $duration, ?string $notes = null): array
+    {
+        if ($duration === null) {
+            return ['suppress' => false, 'suppress_notes' => null, 'suppressed_until' => null];
+        }
+
+        return [
+            'suppress' => true,
+            'suppress_notes' => $notes,
+            'suppressed_until' => $duration === 'forever' ? null : now()->addHours((int) $duration),
+        ];
+    }
+
     private function bulkDelete(Collection $rules, RuleSyncService $service): array
     {
         // Remove each rule's linked file + sync record, then the rule.
@@ -274,8 +420,9 @@ class DebugRuleController extends Controller
     {
         $rule = DebugRule::findOrFail($id);
         $indexUrl = $this->indexUrl();
+        $groups = $this->groups();
 
-        return view('debug-monitor::rules.form', compact('rule', 'indexUrl'));
+        return view('debug-monitor::rules.form', compact('rule', 'indexUrl', 'groups'));
     }
 
     public function update(Request $request, $id, RuleSyncService $service)
@@ -349,14 +496,14 @@ class DebugRuleController extends Controller
         $validated = $request->validate([
             'action' => 'required|in:suppress,unsuppress',
             'suppress_notes' => 'nullable|string|max:500',
+            'duration' => 'nullable|in:'.implode(',', self::SUPPRESS_DURATIONS),
         ]);
 
         $rule = DebugRule::findOrFail($id);
 
-        $rule->update([
-            'suppress' => $validated['action'] === 'suppress',
-            'suppress_notes' => $validated['action'] === 'suppress' ? ($validated['suppress_notes'] ?? 'Suppressed Manually') : null,
-        ]);
+        $rule->update($validated['action'] === 'suppress'
+            ? $this->suppression($validated['duration'] ?? 'forever', $validated['suppress_notes'] ?? 'Suppressed Manually')
+            : $this->suppression(null));
 
         return back()->with('success', 'Rule suppression status updated.');
     }
@@ -387,6 +534,8 @@ class DebugRuleController extends Controller
 
     private function normalizeValidatedRule(array $validated): array
     {
+        $validated['group_name'] = $this->normalizeGroup($validated['group_name'] ?? null);
+
         if (array_key_exists('expected_json', $validated) && is_string($validated['expected_json'])) {
             $decoded = json_decode($validated['expected_json'], true);
 
@@ -401,7 +550,15 @@ class DebugRuleController extends Controller
         $totalRules = DebugRule::count();
         $activeRules = DebugRule::where('status', 'active')->count();
         $inactiveRules = DebugRule::where('status', 'inactive')->count();
-        $suppressRules = DebugRule::where('suppress', true)->count();
+        $suppressRules = DebugRule::suppressed()->count();
+
+        // Active rules whose latest run took longest.
+        $slowestRules = DebugRule::where('status', 'active')
+            ->whereNotNull('last_duration_ms')
+            ->orderByDesc('last_duration_ms')
+            ->orderBy('id')
+            ->limit(5)
+            ->get();
 
         // One row per rule that failed in the last 24 hours (its latest failure
         // plus a count), so a rule failing every minute can't flood the page.
@@ -435,6 +592,7 @@ class DebugRuleController extends Controller
             'activeRules',
             'inactiveRules',
             'suppressRules',
+            'slowestRules',
             'recentErrors'
         ));
     }

@@ -9,7 +9,7 @@ class DebugRuleLog extends Model
     protected $table = 'debug_rule_logs';
 
     protected $fillable = [
-        'debug_rule_id', 'result', 'status'
+        'debug_rule_id', 'result', 'status', 'duration_ms',
     ];
 
     protected $casts = [

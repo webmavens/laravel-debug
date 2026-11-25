@@ -23,6 +23,7 @@ class RuleSyncService
     /** Fields that make up a rule file (runtime state is excluded). */
     private const RULE_FIELDS = [
         'name',
+        'group_name',
         'sql_query',
         'frequency_minutes',
         'importance_level',
@@ -271,7 +272,13 @@ class RuleSyncService
             return [null, $validator->errors()->first()];
         }
 
-        return [$validator->validated(), null];
+        $data = $validator->validated();
+
+        if (array_key_exists('group_name', $data)) {
+            $data['group_name'] = trim((string) $data['group_name']) === '' ? null : trim($data['group_name']);
+        }
+
+        return [$data, null];
     }
 
     /** Serialize a rule to pretty-printed JSON file contents. */

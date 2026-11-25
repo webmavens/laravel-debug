@@ -24,6 +24,8 @@ return new class extends Migration
             }
 
             $table->enum('status', ['ok', 'failed'])->default('ok');
+            // How long the run took.
+            $table->unsignedInteger('duration_ms')->nullable();
             $table->timestamps();
 
             // A rule's logs, newest first (rule page, paginated).

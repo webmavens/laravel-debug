@@ -73,12 +73,29 @@
         class="bg-white shadow-sm outline outline-1 outline-gray-900/5 sm:rounded-xl md:col-span-2 dark:bg-gray-800/50 dark:shadow-none dark:-outline-offset-1 dark:outline-white/10">
         <div class="px-4 py-6 sm:p-8">
             <div class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                @if($rule->group_name)
+                    <p><strong>Group:</strong> {{ $rule->group_name }}</p>
+                @endif
                 <p><strong>Expected Rows:</strong> {{ $rule->expected_rows_operator }} {{ $rule->expected_rows }}
                 </p>
                 <p><strong>Importance:</strong> {{ ucfirst($rule->importance_level) }}</p>
                 <p><strong>Frequency:</strong> {{ $rule->frequency_minutes }} min</p>
                 <p><strong>Status:</strong> {{ ucfirst($rule->status) }}</p>
-                <p><strong>Last Run:</strong> {{ optional($rule->last_run_at)->diffForHumans() }}</p>
+                <p><strong>Last Run:</strong> {{ $rule->last_run_at ? $rule->last_run_at->diffForHumans() : 'Never' }}
+                    @if($rule->last_duration_ms !== null)
+                        <span class="text-gray-500 dark:text-gray-400">(took {{ \Webmavens\DebugMonitor\Support\Duration::format($rule->last_duration_ms) }})</span>
+                    @endif
+                </p>
+                @if($rule->last_status === 'failed' && $rule->failing_since)
+                    <p><strong>Failing since:</strong>
+                        <span class="text-red-600 dark:text-red-400">{{ $rule->failing_since->toDayDateTimeString() }} ({{ $rule->failing_since->diffForHumans() }})</span>
+                    </p>
+                @endif
+                @if($rule->isSuppressed())
+                    <p><strong>Suppressed:</strong>
+                        {{ $rule->suppressed_until ? 'until '.$rule->suppressed_until->toDayDateTimeString().' ('.$rule->suppressed_until->diffForHumans().')' : 'until unsuppressed' }}
+                    </p>
+                @endif
                 <p><strong>SQL:</strong> <code>{{ $rule->sql_query }}</code></p>
             </div>
             @if ($rule->last_debug_log)
@@ -112,6 +129,9 @@
                                                 Status</th>
                                             <th scope="col"
                                                 class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
+                                                Duration</th>
+                                            <th scope="col"
+                                                class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
                                                 Result</th>
                                             <th scope="col"
                                                 class="py-3.5 pr-4 pl-3 sm:pr-6 text-right text-sm font-semibold text-gray-900 dark:text-gray-200">
@@ -131,6 +151,8 @@
                                                 <span
                                                     class="inline-flex items-center rounded-md  px-2 py-1 text-xs font-medium {{ $log->status == 'ok' ? 'bg-green-100 text-green-700 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-400/10 dark:text-red-400' }}">{{ ucfirst($log->status) }}</span>
                                             </td>
+                                            <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                                {{ \Webmavens\DebugMonitor\Support\Duration::format($log->duration_ms) }}</td>
                                             <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                                                 {{-- Only a short preview is rendered; the full result (up to
                                                      max_rows rows) is fetched when the user expands it. --}}
@@ -163,7 +185,7 @@
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="4"
+                                            <td colspan="5"
                                                 class="px-4 py-4 text-center text-sm text-gray-600 dark:text-gray-400">
                                                 No logs found.
                                             </td>
@@ -208,15 +230,33 @@
                     </div>
                     <p class="mt-2 text-xs leading-6 text-gray-600 dark:text-gray-400">
                         Suppress means rule still runs, but no alerts are sent.
+                        @if($rule->isSuppressed() && $rule->suppressed_until)
+                            Suppressed until {{ $rule->suppressed_until->toDayDateTimeString() }}; alerts resume after that.
+                        @endif
                     </p>
-                    <div class="mt-5">
+                    <div class="mt-5 flex flex-wrap items-center gap-3">
                         <input type="hidden" name="action"
-                            value="{{ $rule->suppress ? 'unsuppress' : 'suppress' }}">
+                            value="{{ $rule->isSuppressed() ? 'unsuppress' : 'suppress' }}">
+                        @unless($rule->isSuppressed())
+                            <div class="grid grid-cols-1">
+                                <select name="duration" aria-label="Suppress for"
+                                    class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-2 pr-8 pl-3 text-sm text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:*:bg-gray-800 dark:outline-white/10">
+                                    <option value="1">For 1 hour</option>
+                                    <option value="24">For 24 hours</option>
+                                    <option value="168">For 7 days</option>
+                                    <option value="forever" selected>Until unsuppressed</option>
+                                </select>
+                                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"
+                                    class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500 dark:text-gray-400">
+                                    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                                </svg>
+                            </div>
+                        @endunless
                         <button type="submit" id="submit-btn"
                             class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm
                             hover:bg-indigo-500 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600
                             dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus:outline-indigo-500">
-                            {{ $rule->suppress ? 'Unsuppress' : 'Suppress' }}
+                            {{ $rule->isSuppressed() ? 'Unsuppress' : 'Suppress' }}
                         </button>
                     </div>
                 </form>

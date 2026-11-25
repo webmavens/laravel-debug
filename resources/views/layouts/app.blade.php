@@ -43,7 +43,30 @@
 
             <main class="flex-1 py-10 pt-24 sm:pt-28">
                 <div class="px-4 sm:px-6 lg:px-8">
-                    
+
+                    {{-- Rules missed their schedule: the scheduler or queue worker is probably not running. --}}
+                    @if(($overdueRuleCount ?? 0) > 0)
+                    <div role="alert"
+                        class="rounded-md bg-amber-50 p-4 dark:bg-amber-500/10 dark:outline dark:outline-amber-500/20 mb-5">
+                        <div class="flex">
+                            <div class="shrink-0">
+                                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5 text-amber-400">
+                                    <path
+                                        d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+                                        clip-rule="evenodd" fill-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-amber-800 dark:text-amber-200">Rules are not running on schedule</h3>
+                                <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">
+                                    {{ $overdueRuleCount }} active {{ \Illuminate\Support\Str::plural('rule', $overdueRuleCount) }} {{ $overdueRuleCount === 1 ? 'is' : 'are' }} overdue.
+                                    Make sure the scheduler is running (<code class="font-mono text-xs">php artisan schedule:work</code> locally, or the cron entry on a server)@if($needsQueueWorker) and a queue worker (<code class="font-mono text-xs">php artisan queue:work</code>)@endif.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
                     @if(session('success'))
                     <div x-data="{ show: true }" x-show="show" x-transition.opacity.duration.300ms
                         class="rounded-md bg-green-50 p-4 dark:bg-green-500/10 dark:outline dark:outline-green-500/20 mb-5">
@@ -146,22 +169,27 @@
         document.addEventListener("submit", function (e) {
             const form = e.target;
 
-            if (!(form instanceof HTMLFormElement)) return;
+            if (!(form instanceof HTMLFormElement) || e.defaultPrevented) return;
 
             // Get the button that triggered submit
             const btn = e.submitter;
 
             if (!btn) return;
 
-            btn.disabled = true;
-            btn.classList.add("opacity-50", "cursor-not-allowed");
+            // Disable on the next tick: the browser collects the form data right
+            // after this event, and a disabled button's name/value (e.g. the bulk
+            // bar's action=run) would be left out of the request.
+            setTimeout(function () {
+                btn.disabled = true;
+                btn.classList.add("opacity-50", "cursor-not-allowed");
 
-            // Only swap plain-text buttons; buttons with an icon/badge child keep
-            // their markup so we don't wipe SVGs or the "N pending" count.
-            if (btn.children.length === 0) {
-                btn.dataset.originalText = btn.innerText;
-                btn.innerText = "Processing...";
-            }
+                // Only swap plain-text buttons; buttons with an icon/badge child keep
+                // their markup so we don't wipe SVGs or the "N pending" count.
+                if (btn.children.length === 0) {
+                    btn.dataset.originalText = btn.innerText;
+                    btn.innerText = "Processing...";
+                }
+            }, 0);
         });
 
         // Re-enable buttons when the page is restored from the bfcache (browser

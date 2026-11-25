@@ -7,8 +7,8 @@
         "php": "^8.0"
     },
     "require-dev": {
-        "pestphp/pest": "^3.0",
-        "phpunit/phpunit": "^11.0"
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "phpunit/phpunit": "^10.5|^11.0|^12.0|^13.0"
     },
     "autoload": {
         "psr-4": {
@@ -17,8 +17,11 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "tests/"
+            "Webmavens\\DebugMonitor\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "test": "phpunit"
     },
     "extra": {
         "laravel": {

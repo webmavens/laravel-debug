@@ -24,13 +24,18 @@ class DebugRuleAlert extends Notification implements ShouldQueue
         // A query error (e.g. a renamed table) is called out separately from
         // data that doesn't match the rule's expectations.
         $isError = isset($this->result['exception']);
+        $isUrgent = $this->rule->notification_level === 'urgent';
 
-        return (new MailMessage)
-            ->subject(($isError ? 'Debug Rule Error: ' : 'Debug Rule Failed: ').$this->rule->name)
+        $mail = (new MailMessage)
+            ->subject(($isUrgent ? '[Urgent] ' : '').($isError ? 'Debug Rule Error: ' : 'Debug Rule Failed: ').$this->rule->name)
             ->line($isError ? "A debug rule's query could not run." : 'A debug rule has failed.')
             ->line("Rule: {$this->rule->name}")
             ->line("Importance: {$this->rule->importance_level}")
             ->line("Result: " . json_encode($this->result))
             ->action('View Debug Monitor', route('debug-monitor.rules.show', $this->rule->id));
+
+        // X-Priority 1 (highest). The subject prefix is what most mail apps show,
+        // since many (e.g. Gmail) ignore the priority header.
+        return $isUrgent ? $mail->priority(1) : $mail;
     }
 }

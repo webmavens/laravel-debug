@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('debug_rules', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            // Optional area the rule belongs to (e.g. "Invoices"), for filtering the list.
+            $table->string('group_name', 100)->nullable();
             $table->longText('sql_query')->nullable();
             $table->integer('frequency_minutes')->default(15);
             $table->enum('importance_level', ['low', 'medium', 'high'])->default('medium');
@@ -32,20 +34,27 @@ return new class extends Migration
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->boolean('suppress')->default(false);
             $table->text('suppress_notes')->nullable();
+            // When a timed suppression ends; null means until unsuppressed.
+            $table->timestamp('suppressed_until')->nullable();
             $table->timestamp('last_run_at')->nullable();
             // Latest run result ('ok' / 'failed'), shown in the list and used by the "Failing" filter.
             $table->string('last_status', 10)->nullable();
+            // Start of the current failing streak; null while passing.
+            $table->timestamp('failing_since')->nullable();
+            // How long the latest run took, for spotting slow queries.
+            $table->unsignedInteger('last_duration_ms')->nullable();
             // Set when a failure alert was mailed; cleared when the rule passes again
             // (one alert per failing streak + a "recovered" mail).
             $table->timestamp('failure_notified_at')->nullable();
             $table->timestamps();
 
             // Indexes for the rules-list filters + ordering. The list orders by
-            // created_at DESC with pagination and filters on name (prefix search),
-            // status, importance_level, suppress and last_status; each filter is paired with
-            // created_at so the WHERE + ORDER BY is served from the index.
+            // created_at DESC by default (or by name) with pagination and filters on
+            // group, status, importance_level, suppress and last_status; each filter is
+            // paired with created_at so the WHERE + ORDER BY is served from the index.
             $table->index('created_at');
             $table->index('name');
+            $table->index(['group_name', 'created_at']);
             $table->index(['status', 'created_at']);
             $table->index(['importance_level', 'created_at']);
             $table->index(['suppress', 'created_at']);
